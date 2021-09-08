@@ -23,8 +23,11 @@ func fakeClient() {
 		time.Sleep(1 * time.Second)
 		writeBytes([]byte("testing\n"))
 	}*/
+	connClient, _ = net.Dial("tcp", ":8080")
+
 	clientReader := bufio.NewReader(os.Stdin)
-	//serverReader := bufio.NewReader(connClient)
+
+	serverReader := bufio.NewReader(connClient)
 	for {
 		// Waiting for the client request
 		clientRequest, err := clientReader.ReadString('\n')
@@ -44,7 +47,7 @@ func fakeClient() {
 		}
 
 		// Waiting for the server response
-		serverResponse := "" //, err := serverReader.ReadString('\n')
+		serverResponse, err := serverReader.ReadString('\n')
 
 		switch err {
 		case nil:
@@ -76,10 +79,6 @@ func analyzerRun() {
 		log.Fatalln(err)
 	}
 
-	connClient, err = net.Dial("tcp", ":8080")
-	if err != nil {
-		log.Fatalln(err)
-	}
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
