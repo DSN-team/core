@@ -3,12 +3,18 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"github.com/ClarkGuan/jni"
 	"io"
 	"log"
 	"net"
 	"os"
 	"strings"
 )
+
+// #include <stdlib.h>
+// #include <stddef.h>
+// #include <stdint.h>
+import "C"
 
 type databaseStr struct {
 	io []byte
@@ -17,6 +23,8 @@ type databaseStr struct {
 var dataStr = &databaseStr{}
 var dataStrInput = &databaseStr{}
 var connClient net.Conn
+var workingEnv jni.Env
+var workingClazz jni.Jclass
 
 func fakeClient() {
 	/*for {
@@ -62,13 +70,19 @@ func fakeClient() {
 	}
 }
 func main() {
-	go analyzerRun()
+	go jni_com_dsnteam_runanalyzer(0, 0)
 	fakeClient()
 }
 
 //Инициализировать структуры и подключение
-//export analyzerRun
-func analyzerRun() {
+//export jni_com_dsnteam_runanalyzer
+func jni_com_dsnteam_runanalyzer(env uintptr, clazz uintptr) {
+	if env != 0 {
+		workingEnv = jni.Env(env)
+	}
+	if clazz != 0 {
+		workingClazz = clazz
+	}
 	/*for {
 
 		println("")
@@ -140,6 +154,8 @@ func updateCall() {
 	//Call Application to read structure and update internal data interpretations, update UI.
 
 	//Test
-
 	println((dataStr.io))
+
+	//methodid := workingEnv.GetStaticMethodID(workingClazz,"getUpdateCallBack","(L)")
+	//workingEnv.CallStaticObjectMethodA(workingClazz,methodid,)
 }
