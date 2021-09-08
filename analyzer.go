@@ -1,24 +1,61 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"log"
 	"net"
-	"time"
+	"os"
+	"strings"
 )
 
 type databaseStr struct {
 	io []byte
 }
 
-var dataStr *databaseStr = &databaseStr{}
-var dataStrInput *databaseStr = &databaseStr{}
+var dataStr = &databaseStr{}
+var dataStrInput = &databaseStr{}
 var connClient net.Conn
 
 func fakeClient() {
-	for {
+	/*for {
 		time.Sleep(1 * time.Second)
-		writeBytes([]byte{0, 1, 0})
+		writeBytes([]byte("testing\n"))
+	}*/
+	clientReader := bufio.NewReader(os.Stdin)
+	//serverReader := bufio.NewReader(connClient)
+	for {
+		// Waiting for the client request
+		clientRequest, err := clientReader.ReadString('\n')
+
+		switch err {
+		case nil:
+			clientRequest := strings.TrimSpace(clientRequest)
+			if _, err = connClient.Write([]byte(clientRequest + "\n")); err != nil {
+				log.Printf("failed to send the client request: %v\n", err)
+			}
+		case io.EOF:
+			log.Println("client closed the connection")
+			return
+		default:
+			log.Printf("client error: %v\n", err)
+			return
+		}
+
+		// Waiting for the server response
+		serverResponse := "" //, err := serverReader.ReadString('\n')
+
+		switch err {
+		case nil:
+			log.Println(strings.TrimSpace(serverResponse))
+		case io.EOF:
+			log.Println("server closed the connection")
+			return
+		default:
+			log.Printf("server error: %v\n", err)
+			return
+		}
 	}
 }
 func main() {
@@ -33,8 +70,8 @@ func analyzerRun() {
 
 		println("")
 	}*/
-
 	ln, err := net.Listen("tcp", ":8080")
+	defer ln.Close()
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -47,24 +84,50 @@ func analyzerRun() {
 		conn, err := ln.Accept()
 		if err != nil {
 			log.Fatalln(err)
-			// handle error
 		}
-		println("test")
 		go handleConnection(conn)
 	}
 }
 
-func handleConnection(conn net.Conn) {
-	defer conn.Close()
-	_, _ = conn.Read(dataStr.io)
-	updateCall()
-	time.Sleep(50)
+func handleConnection(con net.Conn) {
+	defer con.Close()
+	println("handling")
+	clientReader := bufio.NewReader(con)
+	println("bufio")
+	for {
+		// Waiting for the client request
+		println("reading")
+		clientRequest, err := clientReader.ReadString('\n')
+		switch err {
+		case nil:
+			clientRequest := strings.TrimSpace(clientRequest)
+			if clientRequest == ":QUIT" {
+				log.Println("client requested server to close the connection so closing")
+				return
+			} else {
+				log.Println(clientRequest)
+			}
+		case io.EOF:
+			log.Println("client closed the connection by terminating the process")
+			return
+		default:
+			log.Printf("error: %v\n", err)
+			return
+		}
+
+		// Responding to the client request
+		dataStr.io = []byte(clientRequest)
+		updateCall()
+		if _, err = con.Write([]byte("GOT IT!\n")); err != nil {
+			log.Printf("failed to respond to client: %v\n", err)
+		}
+	}
+
 }
 
 //export writeBytes
 func writeBytes(in []byte) {
 	dataStrInput.io = in
-	println("client:", connClient)
 	_, _ = fmt.Fprint(connClient, dataStrInput.io)
 }
 
