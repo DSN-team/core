@@ -34,6 +34,7 @@ func fakeClient() {
 		time.Sleep(1 * time.Second)
 		Java_com_dsnteam_dsn_CoreManager_writeBytes([]byte("testing\n"))
 	}*/
+	println("dial address:", address)
 	connClient, _ = net.Dial("tcp", address)
 
 	clientReader := bufio.NewReader(os.Stdin)
@@ -88,25 +89,9 @@ func Java_com_dsnteam_dsn_CoreManager_runClient(env uintptr, clazz uintptr) {
 	if env != 0 {
 		workingEnv = jni.Env(env)
 	}
-	if clazz != 0 {
-		workingClazz = clazz
-	}
 	go fakeClient()
 }
-
-//Инициализировать структуры и подключение
-//export Java_com_dsnteam_dsn_CoreManager_runAnalyzer
-func Java_com_dsnteam_dsn_CoreManager_runAnalyzer(env uintptr, clazz uintptr) {
-	if env != 0 {
-		workingEnv = jni.Env(env)
-	}
-	if clazz != 0 {
-		workingClazz = clazz
-	}
-	/*for {
-
-		println("")
-	}*/
+func analyzer() {
 	ln, err := net.Listen("tcp", address)
 	defer ln.Close()
 	if err != nil {
@@ -122,6 +107,16 @@ func Java_com_dsnteam_dsn_CoreManager_runAnalyzer(env uintptr, clazz uintptr) {
 	}
 }
 
+//Инициализировать структуры и подключение
+//export Java_com_dsnteam_dsn_CoreManager_runAnalyzer
+func Java_com_dsnteam_dsn_CoreManager_runAnalyzer(env uintptr, clazz uintptr) {
+	if env != 0 {
+		workingEnv = jni.Env(env)
+	}
+
+	go analyzer()
+}
+
 func handleConnection(con net.Conn) {
 	defer con.Close()
 	println("handling")
@@ -131,6 +126,7 @@ func handleConnection(con net.Conn) {
 		// Waiting for the client request
 		println("reading")
 		clientRequest, err := clientReader.ReadString('\n')
+		println("request0:", clientRequest)
 		switch err {
 		case nil:
 			clientRequest := strings.TrimSpace(clientRequest)
@@ -147,7 +143,7 @@ func handleConnection(con net.Conn) {
 			log.Printf("error: %v\n", err)
 			return
 		}
-
+		println("request:", clientRequest)
 		// Responding to the client request
 		dataStr.io = []byte(clientRequest)
 		updateCall()
@@ -162,13 +158,16 @@ func handleConnection(con net.Conn) {
 func Java_com_dsnteam_dsn_CoreManager_writeBytes(env uintptr, clazz uintptr, inBuffer uintptr) {
 	point := jni.Env(env).GetDirectBufferAddress(inBuffer)
 	size := jni.Env(env).GetDirectBufferCapacity(inBuffer)
-	var data []byte
 
-	sh := (*reflect.SliceHeader)(unsafe.Pointer(&data))
+	sh := (*reflect.SliceHeader)(unsafe.Pointer(&dataStrInput.io))
 	sh.Data = uintptr(point)
 	sh.Len = size
 	sh.Cap = size
-	dataStrInput.io = data
+	data := make([]byte, size)
+	for i := 0; i < size; i++ {
+		data[i] = dataStrInput.io[i]
+	}
+	println("inputstr:", string(data))
 	_, _ = fmt.Fprint(connClient, dataStrInput.io)
 }
 
@@ -184,7 +183,7 @@ func updateCall() {
 
 	//Test
 	println((dataStr.io))
-
-	methodid := workingEnv.GetStaticMethodID(workingClazz, "getUpdateCallBack", "(L)")
-	workingEnv.CallStaticObjectMethodA(workingClazz, methodid)
+	classinput := workingEnv.FindClass("com/dsnteam/dsn/CoreManager")
+	methodid := workingEnv.GetStaticMethodID(classinput, "getUpdateCallBack", "(L)")
+	workingEnv.CallStaticObjectMethodA(classinput, methodid)
 }
