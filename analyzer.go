@@ -8,7 +8,9 @@ import (
 	"log"
 	"net"
 	"os"
+	"reflect"
 	"strings"
+	"unsafe"
 )
 
 // #include <stdlib.h>
@@ -25,13 +27,14 @@ var dataStrInput = &databaseStr{}
 var connClient net.Conn
 var workingEnv jni.Env
 var workingClazz jni.Jclass
+var address string
 
 func fakeClient() {
 	/*for {
 		time.Sleep(1 * time.Second)
-		writeBytes([]byte("testing\n"))
+		Java_com_dsnteam_dsn_CoreManager_writeBytes([]byte("testing\n"))
 	}*/
-	connClient, _ = net.Dial("tcp", ":8080")
+	connClient, _ = net.Dial("tcp", address)
 
 	clientReader := bufio.NewReader(os.Stdin)
 
@@ -70,13 +73,30 @@ func fakeClient() {
 	}
 }
 func main() {
-	go jni_com_dsnteam_runanalyzer(0, 0)
+	address = ":8080"
+	go Java_com_dsnteam_dsn_CoreManager_runClient(0, 0)
 	fakeClient()
 }
 
+//export Java_com_dsnteam_dsn_CoreManager_connectionTarget
+func Java_com_dsnteam_dsn_CoreManager_connectionTarget(env uintptr, clazz uintptr, stringIn uintptr) {
+	address = string(jni.Env(env).GetStringUTF(stringIn))
+}
+
+//export Java_com_dsnteam_dsn_CoreManager_runClient
+func Java_com_dsnteam_dsn_CoreManager_runClient(env uintptr, clazz uintptr) {
+	if env != 0 {
+		workingEnv = jni.Env(env)
+	}
+	if clazz != 0 {
+		workingClazz = clazz
+	}
+	go fakeClient()
+}
+
 //Инициализировать структуры и подключение
-//export jni_com_dsnteam_runanalyzer
-func jni_com_dsnteam_runanalyzer(env uintptr, clazz uintptr) {
+//export Java_com_dsnteam_dsn_CoreManager_runAnalyzer
+func Java_com_dsnteam_dsn_CoreManager_runAnalyzer(env uintptr, clazz uintptr) {
 	if env != 0 {
 		workingEnv = jni.Env(env)
 	}
@@ -87,7 +107,7 @@ func jni_com_dsnteam_runanalyzer(env uintptr, clazz uintptr) {
 
 		println("")
 	}*/
-	ln, err := net.Listen("tcp", ":8080")
+	ln, err := net.Listen("tcp", address)
 	defer ln.Close()
 	if err != nil {
 		log.Fatalln(err)
@@ -138,15 +158,24 @@ func handleConnection(con net.Conn) {
 
 }
 
-//export writeBytes
-func writeBytes(in []byte) {
-	dataStrInput.io = in
+//export Java_com_dsnteam_dsn_CoreManager_writeBytes
+func Java_com_dsnteam_dsn_CoreManager_writeBytes(env uintptr, clazz uintptr, inBuffer uintptr) {
+	point := jni.Env(env).GetDirectBufferAddress(inBuffer)
+	size := jni.Env(env).GetDirectBufferCapacity(inBuffer)
+	var data []byte
+
+	sh := (*reflect.SliceHeader)(unsafe.Pointer(&data))
+	sh.Data = uintptr(point)
+	sh.Len = size
+	sh.Cap = size
+	dataStrInput.io = data
 	_, _ = fmt.Fprint(connClient, dataStrInput.io)
 }
 
-//export exportBytes
-func exportBytes() []byte {
-	return dataStr.io
+//export Java_com_dsnteam_dsn_CoreManager_exportBytes
+func Java_com_dsnteam_dsn_CoreManager_exportBytes(env uintptr, clazz uintptr) uintptr {
+	buffer := jni.Env(env).NewDirectByteBuffer(unsafe.Pointer(&dataStr.io), len(dataStr.io))
+	return buffer
 }
 
 //Realisation for platform
@@ -156,6 +185,6 @@ func updateCall() {
 	//Test
 	println((dataStr.io))
 
-	//methodid := workingEnv.GetStaticMethodID(workingClazz,"getUpdateCallBack","(L)")
-	//workingEnv.CallStaticObjectMethodA(workingClazz,methodid,)
+	methodid := workingEnv.GetStaticMethodID(workingClazz, "getUpdateCallBack", "(L)")
+	workingEnv.CallStaticObjectMethodA(workingClazz, methodid)
 }
