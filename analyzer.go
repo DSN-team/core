@@ -1,13 +1,10 @@
 package main
 
 import (
-	"bufio"
-	"fmt"
 	"github.com/ClarkGuan/jni"
 	"io"
 	"log"
 	"net"
-	"os"
 	"reflect"
 	"runtime"
 	"strings"
@@ -26,60 +23,61 @@ type databaseStr struct {
 var dataStr = &databaseStr{}
 var dataStrInput = &databaseStr{}
 var connClient net.Conn
-var serverReader *bufio.Reader
+
+//var serverReader *bufio.Reader
 var callBackBufferPtr unsafe.Pointer
 var callBackBufferCap int
 var workingVM jni.VM
 var address string
 
-func fakeClient() {
-	/*for {
-		time.Sleep(1 * time.Second)
-		Java_com_dsnteam_dsn_CoreManager_writeBytes([]byte("testing\n"))
-	}*/
-	println("dial address:", address)
-	connClient, _ = net.Dial("tcp", address)
-
-	clientReader := bufio.NewReader(os.Stdin)
-
-	serverReader = bufio.NewReader(connClient)
-	for {
-		// Waiting for the client request
-		clientRequest, err := clientReader.ReadString('\n')
-
-		switch err {
-		case nil:
-			clientRequest := strings.TrimSpace(clientRequest)
-			if _, err = connClient.Write([]byte(clientRequest + "\n")); err != nil {
-				log.Printf("failed to send the client request: %v\n", err)
-			}
-		case io.EOF:
-			log.Println("client closed the connection")
-			return
-		default:
-			log.Printf("client error: %v\n", err)
-			return
-		}
-
-		// Waiting for the server response
-		serverResponse, err := serverReader.ReadString('\n')
-
-		switch err {
-		case nil:
-			log.Println(strings.TrimSpace(serverResponse))
-		case io.EOF:
-			log.Println("server closed the connection")
-			return
-		default:
-			log.Printf("server error: %v\n", err)
-			return
-		}
-	}
-}
+//func fakeClient() {
+//	/*for {
+//		time.Sleep(1 * time.Second)
+//		Java_com_dsnteam_dsn_CoreManager_writeBytes([]byte("testing\n"))
+//	}*/
+//	println("dial address:", address)
+//	connClient, _ = net.Dial("tcp", address)
+//
+//	clientReader := bufio.NewReader(os.Stdin)
+//
+//	serverReader = bufio.NewReader(connClient)
+//	for {
+//		// Waiting for the client request
+//		clientRequest, err := clientReader.ReadString('\n')
+//
+//		switch err {
+//		case nil:
+//			clientRequest := strings.TrimSpace(clientRequest)
+//			if _, err = connClient.Write([]byte(clientRequest + "\n")); err != nil {
+//				log.Printf("failed to send the client request: %v\n", err)
+//			}
+//		case io.EOF:
+//			log.Println("client closed the connection")
+//			return
+//		default:
+//			log.Printf("client error: %v\n", err)
+//			return
+//		}
+//
+//		// Waiting for the server response
+//		serverResponse, err := serverReader.ReadString('\n')
+//
+//		switch err {
+//		case nil:
+//			log.Println(strings.TrimSpace(serverResponse))
+//		case io.EOF:
+//			log.Println("server closed the connection")
+//			return
+//		default:
+//			log.Printf("server error: %v\n", err)
+//			return
+//		}
+//	}
+//}
 func main() {
-	address = ":8080"
-	go analyzer()
-	go fakeClient()
+	//address = ":8080"
+	//go analyzer()
+	//go fakeClient()
 }
 
 //export Java_com_dsnteam_dsn_CoreManager_connectionTarget
@@ -95,11 +93,7 @@ func Java_com_dsnteam_dsn_CoreManager_runClient(env uintptr, clazz uintptr) {
 	}
 	go func() {
 		connClient, _ = net.Dial("tcp", address)
-		serverReader = bufio.NewReader(connClient)
-		_, err := connClient.Write([]byte("Hello"))
-		if err != nil {
-			return
-		}
+		//serverReader = bufio.NewReader(connClient)
 	}()
 	//go fakeClient()
 }
@@ -141,13 +135,14 @@ func Java_com_dsnteam_dsn_CoreManager_writeCallBackBuffer(env uintptr, clazz uin
 func handleConnection(con net.Conn) {
 	defer con.Close()
 	println("handling")
-	clientReader := bufio.NewReader(con)
+	//clientReader := bufio.NewReader(con)
 	println("bufio")
 	for {
 		// Waiting for the client request
 		println("reading")
 		var err error
-		dataStr.io, err = clientReader.ReadBytes('\n')
+		_, _ = con.Read(dataStr.io)
+		//dataStr.io, err = clientReader.ReadBytes('\n')
 		switch err {
 		case nil:
 			//if clientRequest == ":QUIT" {
@@ -165,7 +160,7 @@ func handleConnection(con net.Conn) {
 		}
 		// Responding to the client request
 		updateCall()
-		if _, err = con.Write([]byte("\n")); err != nil {
+		if _, err = con.Write([]byte("Accepted\n")); err != nil {
 			log.Printf("failed to respond to client: %v\n", err)
 		}
 	}
@@ -173,7 +168,7 @@ func handleConnection(con net.Conn) {
 }
 
 //export Java_com_dsnteam_dsn_CoreManager_writeBytes
-func Java_com_dsnteam_dsn_CoreManager_writeBytes(env uintptr, clazz uintptr, inBuffer uintptr, len int) {
+func Java_com_dsnteam_dsn_CoreManager_writeBytes(env uintptr, _ uintptr, inBuffer uintptr, len int) {
 	println("envwrite:", env)
 	point := jni.Env(env).GetDirectBufferAddress(inBuffer)
 	size := jni.Env(env).GetDirectBufferCapacity(inBuffer)
@@ -205,11 +200,13 @@ func Java_com_dsnteam_dsn_CoreManager_writeBytes(env uintptr, clazz uintptr, inB
 	}
 
 	// Waiting for the server response
-	serverResponse, err := serverReader.ReadString('\n')
+	var serverResponse []byte
+	_, _ = connClient.Read(serverResponse)
+	//serverResponse, err = serverReader.ReadBytes('\n')
 
 	switch err {
 	case nil:
-		log.Println(strings.TrimSpace(serverResponse))
+		log.Println(serverResponse)
 	case io.EOF:
 		log.Println("server closed the connection")
 		return
@@ -217,7 +214,6 @@ func Java_com_dsnteam_dsn_CoreManager_writeBytes(env uintptr, clazz uintptr, inB
 		log.Printf("server error: %v\n", err)
 		return
 	}
-	_, _ = fmt.Fprint(connClient, dataStrInput.io)
 }
 
 //export Java_com_dsnteam_dsn_CoreManager_exportBytes
