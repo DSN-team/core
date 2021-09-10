@@ -142,24 +142,12 @@ func handleConnection(con net.Conn) {
 		// Waiting for the client request
 		println("reading")
 		var err error
-		//var state []byte
-		//_, _ = con.Read(dataStr.io)
-		var state [9]byte
-		for i := 0; i < 9; i++ {
-			state[i], _ = clientReader.ReadByte()
-		}
-		//state, err = clientReader.Peek(9)
-		//_, err = clientReader.Discard(9)
+		state, err := clientReader.Peek(9)
+		_, err = clientReader.Discard(9)
 		count := binary.BigEndian.Uint64(state[0:8])
 		println("Count:", count)
-		count = count
-		println("ReaderCnt:", clientReader.Size())
-		dataStr.io = make([]byte, count)
-		for i := uint64(0); i < count; i++ {
-			dataStr.io[i], _ = clientReader.ReadByte()
-		}
-		//dataStr.io,err = clientReader.Peek(int(count))
-		//_, err = clientReader.Discard(int(count))
+		dataStr.io, err = clientReader.Peek(int(count))
+		_, err = clientReader.Discard(int(count))
 		switch err {
 		case nil:
 			//if clientRequest == ":QUIT" {
