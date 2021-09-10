@@ -96,7 +96,10 @@ func Java_com_dsnteam_dsn_CoreManager_runClient(env uintptr, clazz uintptr) {
 	go func() {
 		connClient, _ = net.Dial("tcp", address)
 		serverReader = bufio.NewReader(connClient)
-
+		_, err := connClient.Write([]byte("Hello"))
+		if err != nil {
+			return
+		}
 	}()
 	//go fakeClient()
 }
@@ -143,16 +146,16 @@ func handleConnection(con net.Conn) {
 	for {
 		// Waiting for the client request
 		println("reading")
-		clientRequest, err := clientReader.ReadString('\n')
+		var err error
+		dataStr.io, err = clientReader.ReadBytes('\n')
 		switch err {
 		case nil:
-			clientRequest := strings.TrimSpace(clientRequest)
-			if clientRequest == ":QUIT" {
-				log.Println("client requested server to close the connection so closing")
-				return
-			} else {
-				log.Println(clientRequest)
-			}
+			//if clientRequest == ":QUIT" {
+			//	log.Println("client requested server to close the connection so closing")
+			//	return
+			//} else {
+			log.Println(dataStr.io)
+			//}
 		case io.EOF:
 			log.Println("client closed the connection by terminating the process")
 			return
@@ -161,9 +164,8 @@ func handleConnection(con net.Conn) {
 			return
 		}
 		// Responding to the client request
-		dataStr.io = []byte(clientRequest)
 		updateCall()
-		if _, err = con.Write([]byte("GOT IT!\n")); err != nil {
+		if _, err = con.Write([]byte("\n")); err != nil {
 			log.Printf("failed to respond to client: %v\n", err)
 		}
 	}
@@ -171,17 +173,17 @@ func handleConnection(con net.Conn) {
 }
 
 //export Java_com_dsnteam_dsn_CoreManager_writeBytes
-func Java_com_dsnteam_dsn_CoreManager_writeBytes(env uintptr, clazz uintptr, inBuffer uintptr) {
+func Java_com_dsnteam_dsn_CoreManager_writeBytes(env uintptr, clazz uintptr, inBuffer uintptr, len int) {
 	println("envwrite:", env)
 	point := jni.Env(env).GetDirectBufferAddress(inBuffer)
 	size := jni.Env(env).GetDirectBufferCapacity(inBuffer)
 
 	sh := (*reflect.SliceHeader)(unsafe.Pointer(&dataStrInput.io))
 	sh.Data = uintptr(point)
-	sh.Len = size
+	sh.Len = len
 	sh.Cap = size
-	data := make([]byte, size)
-	for i := 0; i < size; i++ {
+	data := make([]byte, len)
+	for i := 0; i < len; i++ {
 		data[i] = dataStrInput.io[i]
 	}
 	runtime.KeepAlive(dataStrInput.io)
@@ -228,30 +230,29 @@ func Java_com_dsnteam_dsn_CoreManager_exportBytes(env uintptr, clazz uintptr) ui
 //Realisation for platform
 func updateCall() {
 	//Call Application to read structure and update internal data interpretations, update UI.
-	var curenv jni.Env
-	curenv, _ = workingVM.AttachCurrentThread()
+	var env jni.Env
+	env, _ = workingVM.AttachCurrentThread()
 	//Test
-	println((dataStr.io))
-	println("WorkingEnv:", curenv)
-	classinput := curenv.FindClass("com/dsnteam/dsn/CoreManager")
-	println("classinput:", classinput)
-	methodid := curenv.GetStaticMethodID(classinput, "getUpdateCallBack", "()V")
-	println("MethodID:", methodid)
-	var bdata []byte
+	println(dataStr.io)
+	println("WorkingEnv:", env)
+	classInput := env.FindClass("com/dsnteam/dsn/CoreManager")
+	println("class_input:", classInput)
+	methodId := env.GetStaticMethodID(classInput, "getUpdateCallBack", "()V")
+	println("MethodID:", methodId)
+	var bData []byte
 
-	sh := (*reflect.SliceHeader)(unsafe.Pointer(&bdata))
+	sh := (*reflect.SliceHeader)(unsafe.Pointer(&bData))
 	sh.Data = uintptr(callBackBufferPtr)
-	sh.Len = callBackBufferCap
 	sh.Cap = callBackBufferCap
-
+	sh.Len = len(dataStr.io)
 	println("buffer pointer:", callBackBufferPtr)
-	for i := 0; i < len(bdata); i++ {
-		if i < len(dataStr.io) {
-			bdata[i] = dataStr.io[i]
+	for i := 0; i < len(dataStr.io); i++ {
+		if i < sh.Cap {
+			bData[i] = dataStr.io[i]
 		}
 	}
 	println("buffer write done")
-	curenv.CallStaticVoidMethodA(classinput, methodid)
+	env.CallStaticVoidMethodA(classInput, methodId)
 	workingVM.DetachCurrentThread()
-	runtime.KeepAlive(bdata)
+	runtime.KeepAlive(bData)
 }
