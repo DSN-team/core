@@ -1,13 +1,14 @@
 package main
 
 import (
+	"bufio"
+	"encoding/binary"
 	"github.com/ClarkGuan/jni"
 	"io"
 	"log"
 	"net"
 	"reflect"
 	"runtime"
-	"strings"
 	"unsafe"
 )
 
@@ -24,7 +25,7 @@ var dataStr = &databaseStr{}
 var dataStrInput = &databaseStr{}
 var connClient net.Conn
 
-//var serverReader *bufio.Reader
+var serverReader *bufio.Reader
 var callBackBufferPtr unsafe.Pointer
 var callBackBufferCap int
 var workingVM jni.VM
@@ -93,7 +94,7 @@ func Java_com_dsnteam_dsn_CoreManager_runClient(env uintptr, clazz uintptr) {
 	}
 	go func() {
 		connClient, _ = net.Dial("tcp", address)
-		//serverReader = bufio.NewReader(connClient)
+		serverReader = bufio.NewReader(connClient)
 	}()
 	//go fakeClient()
 }
@@ -135,14 +136,30 @@ func Java_com_dsnteam_dsn_CoreManager_writeCallBackBuffer(env uintptr, clazz uin
 func handleConnection(con net.Conn) {
 	defer con.Close()
 	println("handling")
-	//clientReader := bufio.NewReader(con)
+	clientReader := bufio.NewReader(con)
 	println("bufio")
 	for {
 		// Waiting for the client request
 		println("reading")
 		var err error
-		_, _ = con.Read(dataStr.io)
-		//dataStr.io, err = clientReader.ReadBytes('\n')
+		//var state []byte
+		//_, _ = con.Read(dataStr.io)
+		var state [9]byte
+		for i := 0; i < 9; i++ {
+			state[i], _ = clientReader.ReadByte()
+		}
+		//state, err = clientReader.Peek(9)
+		//_, err = clientReader.Discard(9)
+		count := binary.BigEndian.Uint64(state[0:8])
+		println("Count:", count)
+		count = count
+		println("ReaderCnt:", clientReader.Size())
+		dataStr.io = make([]byte, count)
+		for i := uint64(0); i < count; i++ {
+			dataStr.io[i], _ = clientReader.ReadByte()
+		}
+		//dataStr.io,err = clientReader.Peek(int(count))
+		//_, err = clientReader.Discard(int(count))
 		switch err {
 		case nil:
 			//if clientRequest == ":QUIT" {
@@ -158,8 +175,9 @@ func handleConnection(con net.Conn) {
 			log.Printf("error: %v\n", err)
 			return
 		}
+		//dataStr.io
 		// Responding to the client request
-		updateCall()
+		updateCall(int(count))
 		if _, err = con.Write([]byte("Accepted\n")); err != nil {
 			log.Printf("failed to respond to client: %v\n", err)
 		}
@@ -168,27 +186,34 @@ func handleConnection(con net.Conn) {
 }
 
 //export Java_com_dsnteam_dsn_CoreManager_writeBytes
-func Java_com_dsnteam_dsn_CoreManager_writeBytes(env uintptr, _ uintptr, inBuffer uintptr, len int) {
+func Java_com_dsnteam_dsn_CoreManager_writeBytes(env uintptr, _ uintptr, inBuffer uintptr, lenIn int) {
 	println("envwrite:", env)
 	point := jni.Env(env).GetDirectBufferAddress(inBuffer)
 	size := jni.Env(env).GetDirectBufferCapacity(inBuffer)
 
 	sh := (*reflect.SliceHeader)(unsafe.Pointer(&dataStrInput.io))
 	sh.Data = uintptr(point)
-	sh.Len = len
+	sh.Len = lenIn
 	sh.Cap = size
-	data := make([]byte, len)
-	for i := 0; i < len; i++ {
+	data := make([]byte, lenIn)
+	for i := 0; i < lenIn; i++ {
 		data[i] = dataStrInput.io[i]
 	}
 	runtime.KeepAlive(dataStrInput.io)
+	log.Println("input:", dataStrInput.io)
 	println("inputstr:", string(dataStrInput.io))
-	clientRequest := string(dataStrInput.io)
+	//clientRequest := string(dataStrInput.io)
 	var err error
 	switch err {
 	case nil:
-		clientRequest := strings.TrimSpace(clientRequest)
-		if _, err = connClient.Write([]byte(clientRequest + "\n")); err != nil {
+		//clientRequest := strings.TrimSpace(clientRequest)
+		//bytess := []byte(clientRequest)
+		bs := make([]byte, 9)
+		binary.BigEndian.PutUint64(bs, uint64(lenIn))
+		bs[8] = '\n'
+		bytess := append(bs, dataStrInput.io...)
+		println("ClientSend:", bytess, " count:", lenIn)
+		if _, err = connClient.Write(bytess); err != nil {
 			log.Printf("failed to send the client request: %v\n", err)
 		}
 	case io.EOF:
@@ -201,8 +226,8 @@ func Java_com_dsnteam_dsn_CoreManager_writeBytes(env uintptr, _ uintptr, inBuffe
 
 	// Waiting for the server response
 	var serverResponse []byte
-	_, _ = connClient.Read(serverResponse)
-	//serverResponse, err = serverReader.ReadBytes('\n')
+	//_, _ = connClient.Read(serverResponse)
+	serverResponse, err = serverReader.ReadBytes('\n')
 
 	switch err {
 	case nil:
@@ -224,7 +249,7 @@ func Java_com_dsnteam_dsn_CoreManager_exportBytes(env uintptr, clazz uintptr) ui
 }
 
 //Realisation for platform
-func updateCall() {
+func updateCall(count int) {
 	//Call Application to read structure and update internal data interpretations, update UI.
 	var env jni.Env
 	env, _ = workingVM.AttachCurrentThread()
@@ -233,7 +258,7 @@ func updateCall() {
 	println("WorkingEnv:", env)
 	classInput := env.FindClass("com/dsnteam/dsn/CoreManager")
 	println("class_input:", classInput)
-	methodId := env.GetStaticMethodID(classInput, "getUpdateCallBack", "()V")
+	methodId := env.GetStaticMethodID(classInput, "getUpdateCallBack", "(I)V")
 	println("MethodID:", methodId)
 	var bData []byte
 
@@ -248,7 +273,7 @@ func updateCall() {
 		}
 	}
 	println("buffer write done")
-	env.CallStaticVoidMethodA(classInput, methodId)
+	env.CallStaticVoidMethodA(classInput, methodId, jni.Jvalue(count))
 	workingVM.DetachCurrentThread()
 	runtime.KeepAlive(bData)
 }
