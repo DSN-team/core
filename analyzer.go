@@ -176,6 +176,7 @@ func handleConnection(con net.Conn) {
 //export Java_com_dsnteam_dsn_CoreManager_writeBytes
 func Java_com_dsnteam_dsn_CoreManager_writeBytes(env uintptr, _ uintptr, inBuffer uintptr, lenIn int) {
 	println("envwrite:", env)
+	defer runtime.KeepAlive(dataStrInput.io)
 	point := jni.Env(env).GetDirectBufferAddress(inBuffer)
 	size := jni.Env(env).GetDirectBufferCapacity(inBuffer)
 
@@ -183,10 +184,11 @@ func Java_com_dsnteam_dsn_CoreManager_writeBytes(env uintptr, _ uintptr, inBuffe
 	sh.Data = uintptr(point)
 	sh.Len = lenIn
 	sh.Cap = size
-	data := make([]byte, lenIn)
-	for i := 0; i < lenIn; i++ {
-		data[i] = dataStrInput.io[i]
-	}
+	//data := make([]byte, lenIn)
+	/*
+		for i := 0; i < lenIn; i++ {
+			data[i] = dataStrInput.io[i]
+		}*/
 	runtime.KeepAlive(dataStrInput.io)
 	log.Println("input:", dataStrInput.io)
 	println("inputstr:", string(dataStrInput.io))
