@@ -255,11 +255,7 @@ func updateCall(count int) {
 	sh.Cap = callBackBufferCap
 	sh.Len = len(dataStr.io)
 	println("buffer pointer:", callBackBufferPtr)
-	for i := 0; i < len(dataStr.io); i++ {
-		if i < sh.Cap {
-			bData[i] = dataStr.io[i]
-		}
-	}
+	copy(bData, dataStr.io)
 	println("buffer write done")
 	env.CallStaticVoidMethodA(classInput, methodId, jni.Jvalue(count))
 	workingVM.DetachCurrentThread()
