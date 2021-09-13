@@ -9,6 +9,7 @@ import (
 	"net"
 	"reflect"
 	"runtime"
+	"sync"
 	"unsafe"
 )
 
@@ -28,6 +29,7 @@ var connections = make(map[string]net.Conn)
 var callBackBufferPtr unsafe.Pointer
 var callBackBufferCap int
 var workingVM jni.VM
+var wg sync.WaitGroup
 
 func main() {
 	println("main started")
@@ -41,8 +43,11 @@ func Java_com_dsnteam_dsn_CoreManager_runClient(env uintptr, _ uintptr, addressI
 		workingVM, _ = jni.Env(env).GetJavaVM()
 	}
 	con, _ := net.Dial("tcp", address)
-	connections[con.RemoteAddr().String()] = con
-
+	wg.Add(2)
+	if _, ok := connections[address]; !ok {
+		connections[con.RemoteAddr().String()] = con
+	}
+	wg.Done()
 	go handleConnection(con)
 }
 
@@ -97,7 +102,9 @@ func handleConnection(con net.Conn) {
 
 	clientReader := bufio.NewReader(con)
 	//clientWriter := bufio.NewWriter(con)
+	wg.Add(1)
 	connections[con.RemoteAddr().String()] = con
+	wg.Done()
 	println(con.RemoteAddr().String())
 	println("bufio")
 	for {
@@ -133,9 +140,11 @@ func Java_com_dsnteam_dsn_CoreManager_writeBytes(env uintptr, _ uintptr, inBuffe
 	address := string(jni.Env(env).GetStringUTF(addressIn))
 
 	println(address)
+	wg.Add(len(connections))
 	for k := range connections {
 		println(k)
 	}
+	wg.Done()
 
 	println("env write:", env)
 	defer runtime.KeepAlive(dataStrInput.io)
@@ -159,9 +168,11 @@ func Java_com_dsnteam_dsn_CoreManager_writeBytes(env uintptr, _ uintptr, inBuffe
 		bs[8] = '\n'
 		bytes := append(bs, dataStrInput.io...)
 		println("ClientSend:", bytes, " count:", lenIn)
+		wg.Add(1)
 		if _, err = connections[address].Write(bytes); err != nil {
 			log.Printf("failed to send the client request: %v\n", err)
 		}
+		wg.Done()
 	case io.EOF:
 		log.Println("client closed the connection")
 		return
