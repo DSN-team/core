@@ -122,9 +122,9 @@ func handleConnection(con net.Conn) {
 		}
 		// Responding to the client request
 		updateCall(int(count))
-		if _, err = clientWriter.Write([]byte("Accepted\n")); err != nil {
+		/*if _, err = clientWriter.Write([]byte("Accepted\n")); err != nil {
 			log.Printf("failed to respond to client: %v\n", err)
-		}
+		}*/
 	}
 }
 
