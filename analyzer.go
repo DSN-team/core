@@ -40,12 +40,10 @@ func Java_com_dsnteam_dsn_CoreManager_runClient(env uintptr, _ uintptr, addressI
 	if env != 0 {
 		workingVM, _ = jni.Env(env).GetJavaVM()
 	}
-	go handleClientConnect(address)
-}
-
-func handleClientConnect(address string) {
 	con, _ := net.Dial("tcp", address)
 	connections[con.RemoteAddr().String()] = con
+
+	go handleConnection(con)
 }
 
 func server(address string) {
@@ -64,7 +62,7 @@ func server(address string) {
 		if err != nil {
 			log.Fatalln(err)
 		}
-		go handleServerConnection(con)
+		go handleConnection(con)
 	}
 }
 
@@ -87,7 +85,8 @@ func Java_com_dsnteam_dsn_CoreManager_writeCallBackBuffer(env uintptr, _ uintptr
 	callBackBufferCap = jni.Env(env).GetDirectBufferCapacity(jniBuffer)
 }
 
-func handleServerConnection(con net.Conn) {
+//Symmetrical connection for TCP between f2f
+func handleConnection(con net.Conn) {
 	defer func(con net.Conn) {
 		err := con.Close()
 		if err != nil {
@@ -97,7 +96,7 @@ func handleServerConnection(con net.Conn) {
 	println("handling")
 
 	clientReader := bufio.NewReader(con)
-	clientWriter := bufio.NewWriter(con)
+	//clientWriter := bufio.NewWriter(con)
 	connections[con.RemoteAddr().String()] = con
 	println(con.RemoteAddr().String())
 	println("bufio")
@@ -172,20 +171,20 @@ func Java_com_dsnteam_dsn_CoreManager_writeBytes(env uintptr, _ uintptr, inBuffe
 	}
 
 	// Waiting for the server response
-	var serverResponse []byte
-	serverReader := bufio.NewReader(connections[address])
-	serverResponse, err = serverReader.ReadBytes('\n')
+	//var serverResponse []byte
+	//serverReader := bufio.NewReader(connections[address])
+	//serverResponse, err = serverReader.ReadBytes('\n')
 
-	switch err {
-	case nil:
-		log.Println(serverResponse)
-	case io.EOF:
-		log.Println("server closed the connection")
-		return
-	default:
-		log.Printf("server error: %v\n", err)
-		return
-	}
+	//switch err {
+	//case nil:
+	//	log.Println(serverResponse)
+	//case io.EOF:
+	//	log.Println("server closed the connection")
+	//	return
+	//default:
+	//	log.Printf("server error: %v\n", err)
+	//	return
+	//}
 }
 
 //export Java_com_dsnteam_dsn_CoreManager_exportBytes
