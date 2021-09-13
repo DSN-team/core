@@ -99,7 +99,7 @@ func handleServerConnection(con net.Conn) {
 	clientReader := bufio.NewReader(con)
 	clientWriter := bufio.NewWriter(con)
 	connections[con.RemoteAddr().String()] = con
-
+	println(con.RemoteAddr().String())
 	println("bufio")
 	for {
 		// Waiting for the client request
