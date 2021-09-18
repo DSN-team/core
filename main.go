@@ -18,12 +18,12 @@ import (
 // #include <stdint.h>
 import "C"
 
-type databaseStr struct {
+type strBuffer struct {
 	io []byte
 }
 
-var dataStr = &databaseStr{}
-var dataStrInput = &databaseStr{}
+var dataStrOutput = &strBuffer{}
+var dataStrInput = &strBuffer{}
 var connections = make(map[string]net.Conn)
 
 var callBackBufferPtr unsafe.Pointer
@@ -31,8 +31,54 @@ var callBackBufferCap int
 var workingVM jni.VM
 var wg sync.WaitGroup
 
+var profile Profile
+var profiles []ShowProfile
+
 func main() {
 	println("main started")
+}
+
+//export Java_com_dsnteam_dsn_CoreManager_register
+func Java_com_dsnteam_dsn_CoreManager_register(env uintptr, _ uintptr, usernameIn uintptr, passwordIn uintptr) {
+	username := string(jni.Env(env).GetStringUTF(usernameIn))
+	password := string(jni.Env(env).GetStringUTF(passwordIn))
+	key := genProfileKey()
+	profile = Profile{username: username, password: password, privateKey: key}
+	addProfile(profile)
+}
+
+//export Java_com_dsnteam_dsn_CoreManager_loadProfiles
+func Java_com_dsnteam_dsn_CoreManager_loadProfiles(env uintptr, _ uintptr) {
+	profiles = getProfiles()
+}
+
+//export Java_com_dsnteam_dsn_CoreManager_getProfilesIds
+func Java_com_dsnteam_dsn_CoreManager_getProfilesIds(env uintptr, _ uintptr) (ids uintptr) {
+	var profilesIds []int
+	ids = jni.Env(env).NewIntArray(len(profilesIds))
+	for i := 0; i < len(profiles); i++ {
+		jni.Env(env).SetIntArrayElement(ids, i, profiles[i].id)
+	}
+	return
+}
+
+//export Java_com_dsnteam_dsn_CoreManager_getProfilesNames
+func Java_com_dsnteam_dsn_CoreManager_getProfilesNames(env uintptr, _ uintptr) (usernames uintptr) {
+	var profilesStr []string
+	dataType := jni.Env(env).FindClass("[Ljava/lang/String;")
+	usernames = jni.Env(env).NewObjectArray(len(profilesStr), dataType, 0)
+	for i := 0; i < len(profiles); i++ {
+		jni.Env(env).SetObjectArrayElement(usernames, i, jni.Env(env).NewString(profiles[i].username))
+	}
+	return
+}
+
+//export Java_com_dsnteam_dsn_CoreManager_login
+func Java_com_dsnteam_dsn_CoreManager_login(env uintptr, _ uintptr, pos int, passwordIn uintptr) {
+	password := string(jni.Env(env).GetStringUTF(passwordIn))
+	var privateKeyEncBytes []byte
+	profile.username, profile.address, privateKeyEncBytes = getProfileByID(profiles[pos].id)
+	decProfileKey(privateKeyEncBytes, password)
 }
 
 //export Java_com_dsnteam_dsn_CoreManager_runClient
@@ -84,8 +130,8 @@ func Java_com_dsnteam_dsn_CoreManager_runServer(env uintptr, _ uintptr, addressI
 	go server(address)
 }
 
-//export Java_com_dsnteam_dsn_CoreManager_writeCallBackBuffer
-func Java_com_dsnteam_dsn_CoreManager_writeCallBackBuffer(env uintptr, _ uintptr, jniBuffer uintptr) {
+//export Java_com_dsnteam_dsn_CoreManager_setCallBackBuffer
+func Java_com_dsnteam_dsn_CoreManager_setCallBackBuffer(env uintptr, _ uintptr, jniBuffer uintptr) {
 	callBackBufferPtr = jni.Env(env).GetDirectBufferAddress(jniBuffer)
 	callBackBufferCap = jni.Env(env).GetDirectBufferCapacity(jniBuffer)
 }
@@ -115,11 +161,12 @@ func handleConnection(con net.Conn) {
 		_, err = clientReader.Discard(9)
 		count := binary.BigEndian.Uint64(state[0:8])
 		println("Count:", count)
-		dataStr.io, err = clientReader.Peek(int(count))
+		dataStrOutput.io, err = clientReader.Peek(int(count))
+		ErrHandler(err)
 		_, err = clientReader.Discard(int(count))
 		switch err {
 		case nil:
-			log.Println(dataStr.io)
+			log.Println(dataStrOutput.io)
 		case io.EOF:
 			log.Println("client closed the connection by terminating the process")
 			return
@@ -201,7 +248,7 @@ func Java_com_dsnteam_dsn_CoreManager_writeBytes(env uintptr, _ uintptr, inBuffe
 //export Java_com_dsnteam_dsn_CoreManager_exportBytes
 func Java_com_dsnteam_dsn_CoreManager_exportBytes(env uintptr, clazz uintptr) uintptr {
 	println("env export:", env)
-	buffer := jni.Env(env).NewDirectByteBuffer(unsafe.Pointer(&dataStr.io), len(dataStr.io))
+	buffer := jni.Env(env).NewDirectByteBuffer(unsafe.Pointer(&dataStrOutput.io), len(dataStrOutput.io))
 	return buffer
 }
 
@@ -211,7 +258,7 @@ func updateCall(count int) {
 	var env jni.Env
 	env, _ = workingVM.AttachCurrentThread()
 	//Test
-	println(dataStr.io)
+	println(dataStrOutput.io)
 	println("WorkingEnv:", env)
 	classInput := env.FindClass("com/dsnteam/dsn/CoreManager")
 	println("class_input:", classInput)
@@ -222,9 +269,9 @@ func updateCall(count int) {
 	sh := (*reflect.SliceHeader)(unsafe.Pointer(&bData))
 	sh.Data = uintptr(callBackBufferPtr)
 	sh.Cap = callBackBufferCap
-	sh.Len = len(dataStr.io)
+	sh.Len = len(dataStrOutput.io)
 	println("buffer pointer:", callBackBufferPtr)
-	copy(bData, dataStr.io)
+	copy(bData, dataStrOutput.io)
 	println("buffer write done")
 	env.CallStaticVoidMethodA(classInput, methodId, jni.Jvalue(count))
 	workingVM.DetachCurrentThread()
