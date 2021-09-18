@@ -18,6 +18,8 @@ import (
 // #include <stdint.h>
 import "C"
 
+//Include for correct jni
+
 type strBuffer struct {
 	io []byte
 }
@@ -99,20 +101,15 @@ func Java_com_dsnteam_dsn_CoreManager_runClient(env uintptr, _ uintptr, addressI
 
 func server(address string) {
 	ln, err := net.Listen("tcp", address)
+	ErrHandler(err)
 	defer func(ln net.Listener) {
 		err := ln.Close()
-		if err != nil {
-			log.Fatalln(err)
-		}
+		ErrHandler(err)
 	}(ln)
-	if err != nil {
-		log.Fatalln(err)
-	}
+	ErrHandler(err)
 	for {
 		con, err := ln.Accept()
-		if err != nil {
-			log.Fatalln(err)
-		}
+		ErrHandler(err)
 		go handleConnection(con)
 	}
 }
@@ -140,9 +137,7 @@ func Java_com_dsnteam_dsn_CoreManager_setCallBackBuffer(env uintptr, _ uintptr, 
 func handleConnection(con net.Conn) {
 	defer func(con net.Conn) {
 		err := con.Close()
-		if err != nil {
-			log.Fatalln(err)
-		}
+		ErrHandler(err)
 	}(con)
 	println("handling")
 
@@ -156,9 +151,10 @@ func handleConnection(con net.Conn) {
 	for {
 		// Waiting for the client request
 		println("reading")
-		var err error
 		state, err := clientReader.Peek(9)
+		ErrHandler(err)
 		_, err = clientReader.Discard(9)
+		ErrHandler(err)
 		count := binary.BigEndian.Uint64(state[0:8])
 		println("Count:", count)
 		dataStrOutput.io, err = clientReader.Peek(int(count))
@@ -207,7 +203,6 @@ func Java_com_dsnteam_dsn_CoreManager_writeBytes(env uintptr, _ uintptr, inBuffe
 	log.Println("input:", dataStrInput.io)
 	println("input str:", string(dataStrInput.io))
 
-	var err error
 	switch err {
 	case nil:
 		bs := make([]byte, 9)
