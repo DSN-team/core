@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 //Private variables
@@ -67,7 +68,7 @@ func getProfileByID(id int) (string, string, []byte) {
 	var username string
 	var address string
 	var privateKeyStringBytes string
-
+	response.Next()
 	err = response.Scan(&username, &address, &privateKeyStringBytes)
 	if ErrHandler(err) {
 		return "", "", nil

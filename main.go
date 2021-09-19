@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"encoding/binary"
+	"fmt"
 	"github.com/ClarkGuan/jni"
 	"io"
 	"log"
@@ -40,6 +41,11 @@ func main() {
 	println("main started")
 }
 
+//export Java_com_dsnteam_dsn_CoreManager_initDB
+func Java_com_dsnteam_dsn_CoreManager_initDB(env uintptr, _ uintptr) {
+	startDB()
+}
+
 //export Java_com_dsnteam_dsn_CoreManager_register
 func Java_com_dsnteam_dsn_CoreManager_register(env uintptr, _ uintptr, usernameIn uintptr, passwordIn uintptr) {
 	username := string(jni.Env(env).GetStringUTF(usernameIn))
@@ -52,12 +58,12 @@ func Java_com_dsnteam_dsn_CoreManager_register(env uintptr, _ uintptr, usernameI
 //export Java_com_dsnteam_dsn_CoreManager_loadProfiles
 func Java_com_dsnteam_dsn_CoreManager_loadProfiles(env uintptr, _ uintptr) {
 	profiles = getProfiles()
+	fmt.Println(len(profiles))
 }
 
 //export Java_com_dsnteam_dsn_CoreManager_getProfilesIds
 func Java_com_dsnteam_dsn_CoreManager_getProfilesIds(env uintptr, _ uintptr) (ids uintptr) {
-	var profilesIds []int
-	ids = jni.Env(env).NewIntArray(len(profilesIds))
+	ids = jni.Env(env).NewIntArray(len(profiles))
 	for i := 0; i < len(profiles); i++ {
 		jni.Env(env).SetIntArrayElement(ids, i, profiles[i].id)
 	}
@@ -66,9 +72,8 @@ func Java_com_dsnteam_dsn_CoreManager_getProfilesIds(env uintptr, _ uintptr) (id
 
 //export Java_com_dsnteam_dsn_CoreManager_getProfilesNames
 func Java_com_dsnteam_dsn_CoreManager_getProfilesNames(env uintptr, _ uintptr) (usernames uintptr) {
-	var profilesStr []string
-	dataType := jni.Env(env).FindClass("[Ljava/lang/String;")
-	usernames = jni.Env(env).NewObjectArray(len(profilesStr), dataType, 0)
+	dataType := jni.Env(env).FindClass("Ljava/lang/String;")
+	usernames = jni.Env(env).NewObjectArray(len(profiles), dataType, 0)
 	for i := 0; i < len(profiles); i++ {
 		jni.Env(env).SetObjectArrayElement(usernames, i, jni.Env(env).NewString(profiles[i].username))
 	}
@@ -80,7 +85,12 @@ func Java_com_dsnteam_dsn_CoreManager_login(env uintptr, _ uintptr, pos int, pas
 	password := string(jni.Env(env).GetStringUTF(passwordIn))
 	var privateKeyEncBytes []byte
 	profile.username, profile.address, privateKeyEncBytes = getProfileByID(profiles[pos].id)
-	decProfileKey(privateKeyEncBytes, password)
+	if privateKeyEncBytes == nil {
+		return false
+	}
+	result := decProfileKey(privateKeyEncBytes, password)
+	fmt.Println("login status:", result)
+	return result
 }
 
 //export Java_com_dsnteam_dsn_CoreManager_runClient
@@ -142,7 +152,6 @@ func handleConnection(con net.Conn) {
 	println("handling")
 
 	clientReader := bufio.NewReader(con)
-	//clientWriter := bufio.NewWriter(con)
 	wg.Add(1)
 	connections[con.RemoteAddr().String()] = con
 	wg.Done()
@@ -170,11 +179,7 @@ func handleConnection(con net.Conn) {
 			log.Printf("error: %v\n", err)
 			return
 		}
-		// Responding to the client request
 		updateCall(int(count))
-		/*if _, err = clientWriter.Write([]byte("Accepted\n")); err != nil {
-			log.Printf("failed to respond to client: %v\n", err)
-		}*/
 	}
 }
 
@@ -222,26 +227,10 @@ func Java_com_dsnteam_dsn_CoreManager_writeBytes(env uintptr, _ uintptr, inBuffe
 		log.Printf("client error: %v\n", err)
 		return
 	}
-
-	// Waiting for the server response
-	//var serverResponse []byte
-	//serverReader := bufio.NewReader(connections[address])
-	//serverResponse, err = serverReader.ReadBytes('\n')
-
-	//switch err {
-	//case nil:
-	//	log.Println(serverResponse)
-	//case io.EOF:
-	//	log.Println("server closed the connection")
-	//	return
-	//default:
-	//	log.Printf("server error: %v\n", err)
-	//	return
-	//}
 }
 
 //export Java_com_dsnteam_dsn_CoreManager_exportBytes
-func Java_com_dsnteam_dsn_CoreManager_exportBytes(env uintptr, clazz uintptr) uintptr {
+func Java_com_dsnteam_dsn_CoreManager_exportBytes(env uintptr, _ uintptr) uintptr {
 	println("env export:", env)
 	buffer := jni.Env(env).NewDirectByteBuffer(unsafe.Pointer(&dataStrOutput.io), len(dataStrOutput.io))
 	return buffer
