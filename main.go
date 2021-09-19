@@ -81,7 +81,7 @@ func Java_com_dsnteam_dsn_CoreManager_getProfilesNames(env uintptr, _ uintptr) (
 }
 
 //export Java_com_dsnteam_dsn_CoreManager_login
-func Java_com_dsnteam_dsn_CoreManager_login(env uintptr, _ uintptr, pos int, passwordIn uintptr) {
+func Java_com_dsnteam_dsn_CoreManager_login(env uintptr, _ uintptr, pos int, passwordIn uintptr) bool {
 	password := string(jni.Env(env).GetStringUTF(passwordIn))
 	var privateKeyEncBytes []byte
 	profile.username, profile.address, privateKeyEncBytes = getProfileByID(profiles[pos].id)
