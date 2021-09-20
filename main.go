@@ -229,8 +229,7 @@ func Java_com_dsnteam_dsn_CoreManager_writeBytes(env uintptr, _ uintptr, inBuffe
 
 	println("env write:", env)
 	defer runtime.KeepAlive(dataStrInput.io)
-	point := jni.Env(env).GetDirectBufferAddress(inBuffer)
-	size := jni.Env(env).GetDirectBufferCapacity(inBuffer)
+	point, size := jni.Env(env).GetDirectBufferAddress(inBuffer), jni.Env(env).GetDirectBufferCapacity(inBuffer)
 
 	sh := (*reflect.SliceHeader)(unsafe.Pointer(&dataStrInput.io))
 	sh.Data = uintptr(point)
