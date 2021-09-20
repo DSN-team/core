@@ -10,6 +10,7 @@ import (
 	"crypto/sha1"
 	"crypto/sha512"
 	"crypto/x509"
+	"encoding/base64"
 	"fmt"
 	"log"
 )
@@ -23,6 +24,19 @@ func genProfileKey() *ecdsa.PrivateKey {
 	ErrHandler(err)
 	fmt.Println(key.PublicKey)
 	return key
+}
+
+func encPublicKey(key ecdsa.PublicKey) string {
+	return base64.StdEncoding.EncodeToString(elliptic.Marshal(key, key.X, key.Y))
+}
+func decPublicKey(data string) (key *ecdsa.PublicKey) {
+	publicKey, err := base64.StdEncoding.DecodeString(data)
+	if ErrHandler(err) {
+		return nil
+	}
+	x, y := elliptic.Unmarshal(Curve(), publicKey)
+	key = &ecdsa.PublicKey{Curve: Curve(), X: x, Y: y}
+	return
 }
 
 func encProfileKey() (data []byte) {

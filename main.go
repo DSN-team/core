@@ -36,6 +36,7 @@ var wg sync.WaitGroup
 
 var profile Profile
 var profiles []ShowProfile
+var friends []User
 
 func main() {
 	println("main started")
@@ -47,17 +48,22 @@ func Java_com_dsnteam_dsn_CoreManager_initDB(env uintptr, _ uintptr) {
 }
 
 //export Java_com_dsnteam_dsn_CoreManager_register
-func Java_com_dsnteam_dsn_CoreManager_register(env uintptr, _ uintptr, usernameIn uintptr, passwordIn uintptr) {
-	username := string(jni.Env(env).GetStringUTF(usernameIn))
-	password := string(jni.Env(env).GetStringUTF(passwordIn))
+func Java_com_dsnteam_dsn_CoreManager_register(env uintptr, _ uintptr, usernameIn uintptr, passwordIn uintptr) int {
+	username, password := string(jni.Env(env).GetStringUTF(usernameIn)), string(jni.Env(env).GetStringUTF(passwordIn))
 	key := genProfileKey()
 	profile = Profile{username: username, password: password, privateKey: key}
 	addProfile(profile)
+	loadProfiles()
+	return profiles[len(profiles)-1].id
+}
+
+func loadProfiles() {
+	profiles = getProfiles()
 }
 
 //export Java_com_dsnteam_dsn_CoreManager_loadProfiles
 func Java_com_dsnteam_dsn_CoreManager_loadProfiles(env uintptr, _ uintptr) {
-	profiles = getProfiles()
+	loadProfiles()
 	fmt.Println(len(profiles))
 }
 
@@ -81,16 +87,43 @@ func Java_com_dsnteam_dsn_CoreManager_getProfilesNames(env uintptr, _ uintptr) (
 }
 
 //export Java_com_dsnteam_dsn_CoreManager_login
-func Java_com_dsnteam_dsn_CoreManager_login(env uintptr, _ uintptr, pos int, passwordIn uintptr) bool {
+func Java_com_dsnteam_dsn_CoreManager_login(env uintptr, _ uintptr, pos int, passwordIn uintptr) int {
 	password := string(jni.Env(env).GetStringUTF(passwordIn))
 	var privateKeyEncBytes []byte
 	profile.username, profile.address, privateKeyEncBytes = getProfileByID(profiles[pos].id)
 	if privateKeyEncBytes == nil {
-		return false
+		return 0
 	}
 	result := decProfileKey(privateKeyEncBytes, password)
 	fmt.Println("login status:", result)
-	return result
+	if result {
+		return profiles[pos].id
+	} else {
+		return 0
+	}
+}
+
+//export Java_com_dsnteam_dsn_CoreManager_addFriend
+func Java_com_dsnteam_dsn_CoreManager_addFriend(env uintptr, _ uintptr, addressIn uintptr, publicKeyIn uintptr) {
+	address, publicKey := string(jni.Env(env).GetStringUTF(addressIn)), string(jni.Env(env).GetStringUTF(publicKeyIn))
+	user := User{address: address, publicKey: decPublicKey(publicKey), isFriend: true}
+	addUser(user)
+}
+
+//export Java_com_dsnteam_dsn_CoreManager_getFriendsNames
+func Java_com_dsnteam_dsn_CoreManager_getFriendsNames(env uintptr, _ uintptr) (usernames uintptr) {
+	friends = getFriends()
+	dataType := jni.Env(env).FindClass("Ljava/lang/String;")
+	usernames = jni.Env(env).NewObjectArray(len(friends), dataType, 0)
+	for i := 0; i < len(friends); i++ {
+		jni.Env(env).SetObjectArrayElement(usernames, i, jni.Env(env).NewString(friends[i].username))
+	}
+	return
+}
+
+//export Java_com_dsnteam_dsn_CoreManager_getProfilePublicKey
+func Java_com_dsnteam_dsn_CoreManager_getProfilePublicKey(env uintptr, _ uintptr, pos int) uintptr {
+	return jni.Env(env).NewString(encPublicKey(profile.privateKey.PublicKey))
 }
 
 //export Java_com_dsnteam_dsn_CoreManager_runClient
