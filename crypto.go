@@ -30,10 +30,10 @@ func encPublicKey(key ecdsa.PublicKey) string {
 	return base64.StdEncoding.EncodeToString(marshalPublicKey(key))
 }
 
-func decPublicKey(data string) (key *ecdsa.PublicKey) {
+func decPublicKey(data string) (key ecdsa.PublicKey) {
 	publicKeyBytes, err := base64.StdEncoding.DecodeString(data)
 	if ErrHandler(err) {
-		return nil
+		return
 	}
 	return unmarshalPublicKey(publicKeyBytes)
 }
@@ -42,9 +42,9 @@ func marshalPublicKey(key ecdsa.PublicKey) []byte {
 	return elliptic.Marshal(key, key.X, key.Y)
 }
 
-func unmarshalPublicKey(data []byte) *ecdsa.PublicKey {
+func unmarshalPublicKey(data []byte) ecdsa.PublicKey {
 	x, y := elliptic.Unmarshal(Curve(), data)
-	return &ecdsa.PublicKey{Curve: Curve(), X: x, Y: y}
+	return ecdsa.PublicKey{Curve: Curve(), X: x, Y: y}
 }
 
 func encProfileKey() (data []byte) {

@@ -116,7 +116,8 @@ func Java_com_dsnteam_dsn_CoreManager_getProfileAddress(env uintptr, _ uintptr) 
 //export Java_com_dsnteam_dsn_CoreManager_addFriend
 func Java_com_dsnteam_dsn_CoreManager_addFriend(env uintptr, _ uintptr, addressIn uintptr, publicKeyIn uintptr) {
 	address, publicKey := string(jni.Env(env).GetStringUTF(addressIn)), string(jni.Env(env).GetStringUTF(publicKeyIn))
-	user := User{address: address, publicKey: decPublicKey(publicKey), isFriend: true}
+	decryptedPublicKey := decPublicKey(publicKey)
+	user := User{address: address, publicKey: &decryptedPublicKey, isFriend: true}
 	addUser(user)
 }
 
@@ -176,6 +177,18 @@ func Java_com_dsnteam_dsn_CoreManager_connectToFriends(env uintptr, ptr uintptr)
 	}
 }
 
+//export Java_com_dsnteam_dsn_CoreManager_connectToFriend
+func Java_com_dsnteam_dsn_CoreManager_connectToFriend(env uintptr, ptr uintptr, userId int) {
+	for i := 0; i < len(friends); i++ {
+		go func(index int) {
+			if friends[index].id == userId {
+				Java_com_dsnteam_dsn_CoreManager_runClient(env, ptr, index)
+				return
+			}
+		}(i)
+	}
+}
+
 //export Java_com_dsnteam_dsn_CoreManager_runClient
 func Java_com_dsnteam_dsn_CoreManager_runClient(env uintptr, _ uintptr, pos int) {
 	//println("env run client:", env)
@@ -193,7 +206,7 @@ func Java_com_dsnteam_dsn_CoreManager_runClient(env uintptr, _ uintptr, pos int)
 	publicKey := marshalPublicKey(profile.privateKey.PublicKey)
 	_, err = con.Write(publicKey)
 	ErrHandler(err)
-	println("public key size:", len(publicKey))
+	println("connected to target")
 	go handleConnection(con)
 }
 
@@ -208,6 +221,7 @@ func server(address string) {
 	for {
 		con, err := ln.Accept()
 		ErrHandler(err)
+		println("accepted server client")
 		go handleConnection(con)
 	}
 }
@@ -246,13 +260,20 @@ func handleConnection(con net.Conn) {
 	_, err = clientReader.Discard(publicKeyLen)
 	ErrHandler(err)
 
-	publicKeyString := encPublicKey(*unmarshalPublicKey(key))
-
+	publicKeyString := encPublicKey(unmarshalPublicKey(key))
 	userId := getUserByPublicKey(publicKeyString)
+	if userId == 0 {
+		return
+	}
+	println("connected: ", userId, publicKeyString)
 
 	wg.Add(2)
 	if _, ok := connections[userId]; !ok {
+		println("connection not found adding...")
 		connections[userId] = con
+	} else {
+		println("connection already connected")
+		con = connections[userId]
 	}
 	wg.Done()
 
@@ -281,12 +302,23 @@ func handleConnection(con net.Conn) {
 			return
 		}
 
+		println("updating callback")
 		updateCall(int(count), userId)
 	}
 }
 
 //export Java_com_dsnteam_dsn_CoreManager_writeBytes
 func Java_com_dsnteam_dsn_CoreManager_writeBytes(env uintptr, _ uintptr, inBuffer uintptr, lenIn int, userId int) {
+	var con net.Conn
+	wg.Add(2)
+	if _, ok := connections[userId]; !ok {
+		println("Not connected to:", userId)
+		return
+	} else {
+		con = connections[userId]
+	}
+	wg.Done()
+
 	println("env write:", env)
 	defer runtime.KeepAlive(dataStrInput.io)
 	point, size := jni.Env(env).GetDirectBufferAddress(inBuffer), jni.Env(env).GetDirectBufferCapacity(inBuffer)
@@ -307,11 +339,11 @@ func Java_com_dsnteam_dsn_CoreManager_writeBytes(env uintptr, _ uintptr, inBuffe
 		bs[8] = '\n'
 		bytes := append(bs, dataStrInput.io...)
 		println("ClientSend:", bytes, " count:", lenIn)
-		wg.Add(1)
-		if _, err = connections[userId].Write(bytes); err != nil {
+		//wg.Add(1)
+		if _, err = con.Write(bytes); err != nil {
 			log.Printf("failed to send the client request: %v\n", err)
 		}
-		wg.Done()
+		//wg.Done()
 	case io.EOF:
 		log.Println("client closed the connection")
 		return
@@ -331,7 +363,7 @@ func updateCall(count int, userId int) {
 	println("WorkingEnv:", env)
 	classInput := env.FindClass("com/dsnteam/dsn/CoreManager")
 	println("class_input:", classInput)
-	methodId := env.GetStaticMethodID(classInput, "getUpdateCallBack", "(I)V")
+	methodId := env.GetStaticMethodID(classInput, "getUpdateCallBack", "(II)V")
 	println("MethodID:", methodId)
 	var bData []byte
 

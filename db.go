@@ -59,7 +59,8 @@ func getFriends() []User {
 		if ErrHandler(err) {
 			continue
 		}
-		user.publicKey = decPublicKey(publicKey)
+		decryptedPublicKey := decPublicKey(publicKey)
+		user.publicKey = &decryptedPublicKey
 		users = append(users, user)
 	}
 	return users
@@ -142,7 +143,7 @@ func getProfileByID(id int) (string, string, []byte) {
 
 func getUserByPublicKey(publicKey string) int {
 	println("Getting profile by key")
-	rows, err := db.Query("SELECT id FROM profiles WHERE public_key=$0", publicKey)
+	rows, err := db.Query("SELECT id FROM users WHERE public_key=$0", publicKey)
 	if ErrHandler(err) {
 		return 0
 	}
@@ -153,6 +154,7 @@ func getUserByPublicKey(publicKey string) int {
 	}(rows)
 
 	var id int
+	rows.Next()
 	err = rows.Scan(&id)
 	if ErrHandler(err) {
 		return 0
