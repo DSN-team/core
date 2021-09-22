@@ -43,7 +43,7 @@ func addUser(user User) {
 
 func getFriends() []User {
 	println("Getting friends")
-	rows, err := db.Query("SELECT username, address, public_key, is_friend FROM users WHERE is_friend = true")
+	rows, err := db.Query("SELECT id, username, address, public_key, is_friend FROM users WHERE is_friend = 1")
 	if ErrHandler(err) {
 		return nil
 	}
@@ -55,7 +55,7 @@ func getFriends() []User {
 	for rows.Next() {
 		var user User
 		var publicKey string
-		err = rows.Scan(&user.username, &user.address, &publicKey, &user.isFriend)
+		err = rows.Scan(&user.id, &user.username, &user.address, &publicKey, &user.isFriend)
 		if ErrHandler(err) {
 			continue
 		}
@@ -138,4 +138,24 @@ func getProfileByID(id int) (string, string, []byte) {
 	}
 
 	return username, address, []byte(privateKeyStringBytes)
+}
+
+func getUserByPublicKey(publicKey string) int {
+	println("Getting profile by key")
+	rows, err := db.Query("SELECT id FROM profiles WHERE public_key=$0", publicKey)
+	if ErrHandler(err) {
+		return 0
+	}
+
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		ErrHandler(err)
+	}(rows)
+
+	var id int
+	err = rows.Scan(&id)
+	if ErrHandler(err) {
+		return 0
+	}
+	return id
 }

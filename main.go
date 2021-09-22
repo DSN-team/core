@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"crypto/elliptic"
 	"encoding/binary"
 	"fmt"
 	"github.com/ClarkGuan/jni"
@@ -126,13 +125,50 @@ func Java_com_dsnteam_dsn_CoreManager_addFriend(env uintptr, _ uintptr, addressI
 	addUser(user)
 }
 
+//export Java_com_dsnteam_dsn_CoreManager_getFriends
+func Java_com_dsnteam_dsn_CoreManager_getFriends(env uintptr, _ uintptr) {
+	println("Loading friends from db")
+	friends = getFriends()
+}
+
+//export Java_com_dsnteam_dsn_CoreManager_getFriendsIds
+func Java_com_dsnteam_dsn_CoreManager_getFriendsIds(env uintptr, _ uintptr) (ids uintptr) {
+	ids = jni.Env(env).NewIntArray(len(friends))
+	for i := 0; i < len(profiles); i++ {
+		jni.Env(env).SetIntArrayElement(ids, i, friends[i].id)
+	}
+	return
+}
+
 //export Java_com_dsnteam_dsn_CoreManager_getFriendsNames
 func Java_com_dsnteam_dsn_CoreManager_getFriendsNames(env uintptr, _ uintptr) (usernames uintptr) {
-	friends = getFriends()
+	//friends = getFriends()
 	dataType := jni.Env(env).FindClass("Ljava/lang/String;")
 	usernames = jni.Env(env).NewObjectArray(len(friends), dataType, 0)
 	for i := 0; i < len(friends); i++ {
 		jni.Env(env).SetObjectArrayElement(usernames, i, jni.Env(env).NewString(friends[i].username))
+	}
+	return
+}
+
+//export Java_com_dsnteam_dsn_CoreManager_getFriendsAddresses
+func Java_com_dsnteam_dsn_CoreManager_getFriendsAddresses(env uintptr, _ uintptr) (address uintptr) {
+	//friends = getFriends()
+	dataType := jni.Env(env).FindClass("Ljava/lang/String;")
+	address = jni.Env(env).NewObjectArray(len(friends), dataType, 0)
+	for i := 0; i < len(friends); i++ {
+		jni.Env(env).SetObjectArrayElement(address, i, jni.Env(env).NewString(friends[i].address))
+	}
+	return
+}
+
+//export Java_com_dsnteam_dsn_CoreManager_getFriendsPublicKeys
+func Java_com_dsnteam_dsn_CoreManager_getFriendsPublicKeys(env uintptr, _ uintptr) (publicKey uintptr) {
+	//friends = getFriends()
+	dataType := jni.Env(env).FindClass("Ljava/lang/String;")
+	publicKey = jni.Env(env).NewObjectArray(len(friends), dataType, 0)
+	for i := 0; i < len(friends); i++ {
+		jni.Env(env).SetObjectArrayElement(publicKey, i, jni.Env(env).NewString(encPublicKey(*friends[i].publicKey)))
 	}
 	return
 }
@@ -158,7 +194,7 @@ func Java_com_dsnteam_dsn_CoreManager_runClient(env uintptr, _ uintptr, pos int)
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	publicKey := elliptic.Marshal(profile.privateKey.PublicKey, profile.privateKey.PublicKey.X, profile.privateKey.PublicKey.Y)
+	publicKey := marshalPublicKey(profile.privateKey.PublicKey)
 	_, err = con.Write(publicKey)
 	ErrHandler(err)
 	println("public key size:", len(publicKey))
@@ -208,14 +244,18 @@ func handleConnection(con net.Conn) {
 	println("handling")
 
 	clientReader := bufio.NewReader(con)
-	key, err := clientReader.Peek(128)
+	publicKeyLen := len(marshalPublicKey(profile.privateKey.PublicKey))
+	key, err := clientReader.Peek(publicKeyLen)
 	ErrHandler(err)
-	println(key)
-	//wg.Add(2)
-	//if _, ok := connections[key]; !ok {
-	//	connections[key] = con
-	//}
-	//wg.Done()
+	_, err = clientReader.Discard(publicKeyLen)
+	ErrHandler(err)
+	publicKeyString := encPublicKey(*unmarshalPublicKey(key))
+
+	wg.Add(2)
+	if _, ok := connections[publicKeyString]; !ok {
+		connections[publicKeyString] = con
+	}
+	wg.Done()
 
 	println(con.RemoteAddr().String())
 	println("bufio")
@@ -241,21 +281,14 @@ func handleConnection(con net.Conn) {
 			log.Printf("error: %v\n", err)
 			return
 		}
-		updateCall(int(count))
+
+		user_id := getUserByPublicKey(publicKeyString)
+		updateCall(int(count), user_id)
 	}
 }
 
 //export Java_com_dsnteam_dsn_CoreManager_writeBytes
-func Java_com_dsnteam_dsn_CoreManager_writeBytes(env uintptr, _ uintptr, inBuffer uintptr, lenIn int, addressIn uintptr) {
-	address := string(jni.Env(env).GetStringUTF(addressIn))
-
-	println(address)
-	wg.Add(len(connections))
-	for k := range connections {
-		println(k)
-	}
-	wg.Done()
-
+func Java_com_dsnteam_dsn_CoreManager_writeBytes(env uintptr, _ uintptr, inBuffer uintptr, lenIn int, pos int) {
 	println("env write:", env)
 	defer runtime.KeepAlive(dataStrInput.io)
 	point, size := jni.Env(env).GetDirectBufferAddress(inBuffer), jni.Env(env).GetDirectBufferCapacity(inBuffer)
@@ -269,6 +302,8 @@ func Java_com_dsnteam_dsn_CoreManager_writeBytes(env uintptr, _ uintptr, inBuffe
 	log.Println("input:", dataStrInput.io)
 	println("input str:", string(dataStrInput.io))
 
+	publicKeyString := encPublicKey(*friends[pos].publicKey)
+
 	switch err {
 	case nil:
 		bs := make([]byte, 9)
@@ -277,7 +312,7 @@ func Java_com_dsnteam_dsn_CoreManager_writeBytes(env uintptr, _ uintptr, inBuffe
 		bytes := append(bs, dataStrInput.io...)
 		println("ClientSend:", bytes, " count:", lenIn)
 		wg.Add(1)
-		if _, err = connections[address].Write(bytes); err != nil {
+		if _, err = connections[publicKeyString].Write(bytes); err != nil {
 			log.Printf("failed to send the client request: %v\n", err)
 		}
 		wg.Done()
@@ -290,15 +325,8 @@ func Java_com_dsnteam_dsn_CoreManager_writeBytes(env uintptr, _ uintptr, inBuffe
 	}
 }
 
-//export Java_com_dsnteam_dsn_CoreManager_exportBytes
-func Java_com_dsnteam_dsn_CoreManager_exportBytes(env uintptr, _ uintptr) uintptr {
-	println("env export:", env)
-	buffer := jni.Env(env).NewDirectByteBuffer(unsafe.Pointer(&dataStrOutput.io), len(dataStrOutput.io))
-	return buffer
-}
-
 //Realisation for platform
-func updateCall(count int) {
+func updateCall(count int, userId int) {
 	//Call Application to read structure and update internal data interpretations, update UI.
 	var env jni.Env
 	env, _ = workingVM.AttachCurrentThread()
@@ -318,7 +346,7 @@ func updateCall(count int) {
 	println("buffer pointer:", callBackBufferPtr)
 	copy(bData, dataStrOutput.io)
 	println("buffer write done")
-	env.CallStaticVoidMethodA(classInput, methodId, jni.Jvalue(count))
+	env.CallStaticVoidMethodA(classInput, methodId, jni.Jvalue(count), jni.Jvalue(userId))
 	workingVM.DetachCurrentThread()
 	runtime.KeepAlive(bData)
 }

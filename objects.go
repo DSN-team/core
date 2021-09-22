@@ -3,6 +3,7 @@ package main
 import "crypto/ecdsa"
 
 type User struct {
+	id        int
 	username  string
 	address   string
 	publicKey *ecdsa.PublicKey
