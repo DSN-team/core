@@ -8,7 +8,10 @@ import (
 //Private variables
 var db *sql.DB
 
+//var dbWG *sync.WaitGroup
+
 func createUsersTable() {
+	println("creating users table")
 	_, err := db.Exec("create table if not exists users (id integer not null constraint users_pk primary key autoincrement, username text, address text not null, public_key text not null, is_friend integer default 0)")
 	ErrHandler(err)
 	_, err = db.Exec("create unique index if not exists users_id_uindex on users (id)")
@@ -16,12 +19,14 @@ func createUsersTable() {
 }
 
 func createProfilesTable() {
+	println("creating profiles table")
 	_, err := db.Exec("create table if not exists profiles (id integer not null constraint profiles_pk primary key autoincrement, username text, address text, privateKey text)")
 	ErrHandler(err)
 	_, err = db.Exec("create unique index if not exists profiles_id_uindex on profiles (id)")
 }
 
 func startDB() {
+	println("initing db")
 	db, err = sql.Open("sqlite3", "data.db")
 	ErrHandler(err)
 	_, err := db.Begin()
@@ -31,20 +36,26 @@ func startDB() {
 }
 
 func addUser(user User) {
+	println("Adding user", user.username)
 	_, err := db.Exec("INSERT INTO users (username,address,public_key,is_friend) VALUES ($0,$1,$2,$3)", user.username, user.address, encPublicKey(*user.publicKey), user.isFriend)
 	ErrHandler(err)
 }
 
 func getFriends() []User {
-	response, err := db.Query("SELECT * FROM users WHERE is_friend = true")
+	println("Getting friends")
+	rows, err := db.Query("SELECT username, address, public_key, is_friend FROM users WHERE is_friend = true")
 	if ErrHandler(err) {
 		return nil
 	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		ErrHandler(err)
+	}(rows)
 	var users []User
-	for response.Next() {
+	for rows.Next() {
 		var user User
 		var publicKey string
-		err = response.Scan(&user.username, &user.address, &publicKey, &user.isFriend)
+		err = rows.Scan(&user.username, &user.address, &publicKey, &user.isFriend)
 		if ErrHandler(err) {
 			continue
 		}
@@ -74,21 +85,29 @@ func getFriends() []User {
 //}
 
 func addProfile(profile Profile) {
+	println("Adding profile", profile.username)
 	privateKeyBytes := encProfileKey()
 	_, err := db.Exec("INSERT INTO profiles (username, address, privateKey) VALUES ($0,$1,$2)", profile.username, profile.address, string(privateKeyBytes))
 	ErrHandler(err)
 }
 
 func getProfiles() []ShowProfile {
-	response, err := db.Query("SELECT id, username FROM profiles")
+	println("Getting profiles")
+
+	rows, err := db.Query("SELECT id, username FROM profiles")
 	if ErrHandler(err) {
 		return nil
 	}
 
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		ErrHandler(err)
+	}(rows)
+
 	var profiles []ShowProfile
-	for response.Next() {
+	for rows.Next() {
 		var profile ShowProfile
-		err = response.Scan(&profile.id, &profile.username)
+		err = rows.Scan(&profile.id, &profile.username)
 		if ErrHandler(err) {
 			continue
 		}
@@ -98,16 +117,22 @@ func getProfiles() []ShowProfile {
 }
 
 func getProfileByID(id int) (string, string, []byte) {
-	response, err := db.Query("SELECT username, address, privateKey FROM profiles WHERE id=$0", id)
+	println("Getting profile by ID")
+	rows, err := db.Query("SELECT username, address, privateKey FROM profiles WHERE id=$0", id)
 	if ErrHandler(err) {
 		return "", "", nil
 	}
 
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		ErrHandler(err)
+	}(rows)
+
 	var username string
 	var address string
 	var privateKeyStringBytes string
-	response.Next()
-	err = response.Scan(&username, &address, &privateKeyStringBytes)
+	rows.Next()
+	err = rows.Scan(&username, &address, &privateKeyStringBytes)
 	if ErrHandler(err) {
 		return "", "", nil
 	}

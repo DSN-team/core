@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"crypto/elliptic"
 	"encoding/binary"
 	"fmt"
 	"github.com/ClarkGuan/jni"
@@ -11,6 +12,7 @@ import (
 	"reflect"
 	"runtime"
 	"sync"
+	"time"
 	"unsafe"
 )
 
@@ -42,23 +44,39 @@ func main() {
 	println("main started")
 }
 
+func loadProfiles() {
+	profiles = getProfiles()
+}
+
 //export Java_com_dsnteam_dsn_CoreManager_initDB
 func Java_com_dsnteam_dsn_CoreManager_initDB(env uintptr, _ uintptr) {
 	startDB()
 }
 
 //export Java_com_dsnteam_dsn_CoreManager_register
-func Java_com_dsnteam_dsn_CoreManager_register(env uintptr, _ uintptr, usernameIn uintptr, passwordIn uintptr) int {
+func Java_com_dsnteam_dsn_CoreManager_register(env uintptr, _ uintptr, usernameIn uintptr, passwordIn uintptr) (result bool) {
 	username, password := string(jni.Env(env).GetStringUTF(usernameIn)), string(jni.Env(env).GetStringUTF(passwordIn))
 	key := genProfileKey()
+	if key == nil {
+		return false
+	}
 	profile = Profile{username: username, password: password, privateKey: key}
 	addProfile(profile)
 	loadProfiles()
-	return profiles[len(profiles)-1].id
+	return true
 }
 
-func loadProfiles() {
-	profiles = getProfiles()
+//export Java_com_dsnteam_dsn_CoreManager_login
+func Java_com_dsnteam_dsn_CoreManager_login(env uintptr, _ uintptr, pos int, passwordIn uintptr) (result bool) {
+	password := string(jni.Env(env).GetStringUTF(passwordIn))
+	var privateKeyEncBytes []byte
+	profile.username, profile.address, privateKeyEncBytes = getProfileByID(profiles[pos].id)
+	if privateKeyEncBytes == nil {
+		return false
+	}
+	result = decProfileKey(privateKeyEncBytes, password)
+	fmt.Println("login status:", result)
+	return
 }
 
 //export Java_com_dsnteam_dsn_CoreManager_loadProfiles
@@ -86,21 +104,19 @@ func Java_com_dsnteam_dsn_CoreManager_getProfilesNames(env uintptr, _ uintptr) (
 	return
 }
 
-//export Java_com_dsnteam_dsn_CoreManager_login
-func Java_com_dsnteam_dsn_CoreManager_login(env uintptr, _ uintptr, pos int, passwordIn uintptr) int {
-	password := string(jni.Env(env).GetStringUTF(passwordIn))
-	var privateKeyEncBytes []byte
-	profile.username, profile.address, privateKeyEncBytes = getProfileByID(profiles[pos].id)
-	if privateKeyEncBytes == nil {
-		return 0
-	}
-	result := decProfileKey(privateKeyEncBytes, password)
-	fmt.Println("login status:", result)
-	if result {
-		return profiles[pos].id
-	} else {
-		return 0
-	}
+//export Java_com_dsnteam_dsn_CoreManager_getProfilePublicKey
+func Java_com_dsnteam_dsn_CoreManager_getProfilePublicKey(env uintptr, _ uintptr) uintptr {
+	return jni.Env(env).NewString(encPublicKey(profile.privateKey.PublicKey))
+}
+
+//export Java_com_dsnteam_dsn_CoreManager_getProfileName
+func Java_com_dsnteam_dsn_CoreManager_getProfileName(env uintptr, _ uintptr) uintptr {
+	return jni.Env(env).NewString(profile.username)
+}
+
+//export Java_com_dsnteam_dsn_CoreManager_getProfileAddress
+func Java_com_dsnteam_dsn_CoreManager_getProfileAddress(env uintptr, _ uintptr) uintptr {
+	return jni.Env(env).NewString(profile.address)
 }
 
 //export Java_com_dsnteam_dsn_CoreManager_addFriend
@@ -121,24 +137,31 @@ func Java_com_dsnteam_dsn_CoreManager_getFriendsNames(env uintptr, _ uintptr) (u
 	return
 }
 
-//export Java_com_dsnteam_dsn_CoreManager_getProfilePublicKey
-func Java_com_dsnteam_dsn_CoreManager_getProfilePublicKey(env uintptr, _ uintptr, pos int) uintptr {
-	return jni.Env(env).NewString(encPublicKey(profile.privateKey.PublicKey))
+//export Java_com_dsnteam_dsn_CoreManager_connectToFriends
+func Java_com_dsnteam_dsn_CoreManager_connectToFriends(env uintptr, ptr uintptr) {
+	for i := 0; i < len(friends); i++ {
+		go Java_com_dsnteam_dsn_CoreManager_runClient(env, ptr, i)
+	}
 }
 
 //export Java_com_dsnteam_dsn_CoreManager_runClient
-func Java_com_dsnteam_dsn_CoreManager_runClient(env uintptr, _ uintptr, addressIn uintptr) {
-	address := string(jni.Env(env).GetStringUTF(addressIn))
-	println("env run client:", env)
+func Java_com_dsnteam_dsn_CoreManager_runClient(env uintptr, _ uintptr, pos int) {
+	//println("env run client:", env)
 	if env != 0 {
 		workingVM, _ = jni.Env(env).GetJavaVM()
 	}
-	con, _ := net.Dial("tcp", address)
-	wg.Add(2)
-	if _, ok := connections[address]; !ok {
-		connections[con.RemoteAddr().String()] = con
+
+	con, err := net.Dial("tcp", friends[pos].address)
+	for err != nil {
+		con, err = net.Dial("tcp", friends[pos].address)
+		ErrHandler(err)
+		time.Sleep(100 * time.Millisecond)
 	}
-	wg.Done()
+
+	publicKey := elliptic.Marshal(profile.privateKey.PublicKey, profile.privateKey.PublicKey.X, profile.privateKey.PublicKey.Y)
+	_, err = con.Write(publicKey)
+	ErrHandler(err)
+	println("public key size:", len(publicKey))
 	go handleConnection(con)
 }
 
@@ -185,9 +208,15 @@ func handleConnection(con net.Conn) {
 	println("handling")
 
 	clientReader := bufio.NewReader(con)
-	wg.Add(1)
-	connections[con.RemoteAddr().String()] = con
-	wg.Done()
+	key, err := clientReader.Peek(128)
+	ErrHandler(err)
+	println(key)
+	//wg.Add(2)
+	//if _, ok := connections[key]; !ok {
+	//	connections[key] = con
+	//}
+	//wg.Done()
+
 	println(con.RemoteAddr().String())
 	println("bufio")
 	for {
