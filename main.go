@@ -56,6 +56,7 @@ func Java_com_dsnteam_dsn_CoreManager_register(env uintptr, _ uintptr, usernameI
 		return false
 	}
 	profile = Profile{username: username, password: password, privateKey: key}
+	log.Println(profile)
 	addProfile(profile)
 	return true
 }
@@ -100,7 +101,7 @@ func Java_com_dsnteam_dsn_CoreManager_getProfilesNames(env uintptr, _ uintptr) (
 
 //export Java_com_dsnteam_dsn_CoreManager_getProfilePublicKey
 func Java_com_dsnteam_dsn_CoreManager_getProfilePublicKey(env uintptr, _ uintptr) uintptr {
-	return jni.Env(env).NewString(encPublicKey(profile.privateKey.PublicKey))
+	return jni.Env(env).NewString(encPublicKey(&profile.privateKey.PublicKey))
 }
 
 //export Java_com_dsnteam_dsn_CoreManager_getProfileName
@@ -165,7 +166,7 @@ func Java_com_dsnteam_dsn_CoreManager_getFriendsPublicKeys(env uintptr, _ uintpt
 	dataType := jni.Env(env).FindClass("Ljava/lang/String;")
 	publicKey = jni.Env(env).NewObjectArray(len(friends), dataType, 0)
 	for i := 0; i < len(friends); i++ {
-		jni.Env(env).SetObjectArrayElement(publicKey, i, jni.Env(env).NewString(encPublicKey(*friends[i].publicKey)))
+		jni.Env(env).SetObjectArrayElement(publicKey, i, jni.Env(env).NewString(encPublicKey(friends[i].publicKey)))
 	}
 	return
 }
@@ -197,13 +198,13 @@ func Java_com_dsnteam_dsn_CoreManager_runClient(env uintptr, _ uintptr, pos int)
 	}
 
 	con, err := net.Dial("tcp", friends[pos].address)
-	for err != nil {
+	for err == nil {
 		con, err = net.Dial("tcp", friends[pos].address)
 		ErrHandler(err)
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	publicKey := marshalPublicKey(profile.privateKey.PublicKey)
+	publicKey := marshalPublicKey(&profile.privateKey.PublicKey)
 	_, err = con.Write(publicKey)
 	ErrHandler(err)
 	println("connected to target")
@@ -254,18 +255,21 @@ func handleConnection(con net.Conn) {
 	println("handling")
 
 	clientReader := bufio.NewReader(con)
-	publicKeyLen := len(marshalPublicKey(profile.privateKey.PublicKey))
+	publicKeyLen := len(marshalPublicKey(&profile.privateKey.PublicKey))
+	println(publicKeyLen)
 	key, err := clientReader.Peek(publicKeyLen)
 	ErrHandler(err)
 	_, err = clientReader.Discard(publicKeyLen)
 	ErrHandler(err)
 
-	publicKeyString := encPublicKey(unmarshalPublicKey(key))
+	unmarshalPublicKeyBytes := unmarshalPublicKey(key)
+	publicKeyString := encPublicKey(&unmarshalPublicKeyBytes)
 	userId := getUserByPublicKey(publicKeyString)
+	println("connected: ", userId, publicKeyString)
 	if userId == 0 {
+		println("not found in database")
 		return
 	}
-	println("connected: ", userId, publicKeyString)
 
 	wg.Add(2)
 	if _, ok := connections[userId]; !ok {
@@ -291,6 +295,7 @@ func handleConnection(con net.Conn) {
 		dataStrOutput.io, err = clientReader.Peek(int(count))
 		ErrHandler(err)
 		_, err = clientReader.Discard(int(count))
+		ErrHandler(err)
 		switch err {
 		case nil:
 			log.Println(dataStrOutput.io)
