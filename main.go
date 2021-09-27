@@ -101,7 +101,7 @@ func Java_com_dsnteam_dsn_CoreManager_getProfilesNames(env uintptr, _ uintptr) (
 
 //export Java_com_dsnteam_dsn_CoreManager_getProfilePublicKey
 func Java_com_dsnteam_dsn_CoreManager_getProfilePublicKey(env uintptr, _ uintptr) uintptr {
-	return jni.Env(env).NewString(encPublicKey(&profile.privateKey.PublicKey))
+	return jni.Env(env).NewString(encPublicKey(marshalPublicKey(&profile.privateKey.PublicKey)))
 }
 
 //export Java_com_dsnteam_dsn_CoreManager_getProfileName
@@ -117,7 +117,7 @@ func Java_com_dsnteam_dsn_CoreManager_getProfileAddress(env uintptr, _ uintptr) 
 //export Java_com_dsnteam_dsn_CoreManager_addFriend
 func Java_com_dsnteam_dsn_CoreManager_addFriend(env uintptr, _ uintptr, addressIn uintptr, publicKeyIn uintptr) {
 	address, publicKey := string(jni.Env(env).GetStringUTF(addressIn)), string(jni.Env(env).GetStringUTF(publicKeyIn))
-	decryptedPublicKey := decPublicKey(publicKey)
+	decryptedPublicKey := unmarshalPublicKey(decPublicKey(publicKey))
 	user := User{address: address, publicKey: &decryptedPublicKey, isFriend: true}
 	addUser(user)
 }
@@ -132,7 +132,7 @@ func Java_com_dsnteam_dsn_CoreManager_loadFriends(env uintptr, _ uintptr) int {
 //export Java_com_dsnteam_dsn_CoreManager_getFriendsIds
 func Java_com_dsnteam_dsn_CoreManager_getFriendsIds(env uintptr, _ uintptr) (ids uintptr) {
 	ids = jni.Env(env).NewIntArray(len(friends))
-	for i := 0; i < len(profiles); i++ {
+	for i := 0; i < len(friends); i++ {
 		jni.Env(env).SetIntArrayElement(ids, i, friends[i].id)
 	}
 	return
@@ -166,42 +166,37 @@ func Java_com_dsnteam_dsn_CoreManager_getFriendsPublicKeys(env uintptr, _ uintpt
 	dataType := jni.Env(env).FindClass("Ljava/lang/String;")
 	publicKey = jni.Env(env).NewObjectArray(len(friends), dataType, 0)
 	for i := 0; i < len(friends); i++ {
-		jni.Env(env).SetObjectArrayElement(publicKey, i, jni.Env(env).NewString(encPublicKey(friends[i].publicKey)))
+		jni.Env(env).SetObjectArrayElement(publicKey, i, jni.Env(env).NewString(encPublicKey(marshalPublicKey(friends[i].publicKey))))
 	}
 	return
 }
 
 //export Java_com_dsnteam_dsn_CoreManager_connectToFriends
-func Java_com_dsnteam_dsn_CoreManager_connectToFriends(env uintptr, ptr uintptr) {
+func Java_com_dsnteam_dsn_CoreManager_connectToFriends(env uintptr, _ uintptr) {
 	for i := 0; i < len(friends); i++ {
-		go Java_com_dsnteam_dsn_CoreManager_runClient(env, ptr, i)
+		go connect(i)
 	}
 }
 
 //export Java_com_dsnteam_dsn_CoreManager_connectToFriend
-func Java_com_dsnteam_dsn_CoreManager_connectToFriend(env uintptr, ptr uintptr, userId int) {
+func Java_com_dsnteam_dsn_CoreManager_connectToFriend(env uintptr, _ uintptr, userId int) {
 	for i := 0; i < len(friends); i++ {
 		go func(index int) {
 			if friends[index].id == userId {
-				Java_com_dsnteam_dsn_CoreManager_runClient(env, ptr, index)
+				connect(index)
 				return
 			}
 		}(i)
 	}
 }
 
-//export Java_com_dsnteam_dsn_CoreManager_runClient
-func Java_com_dsnteam_dsn_CoreManager_runClient(env uintptr, _ uintptr, pos int) {
-	//println("env run client:", env)
-	if env != 0 {
-		workingVM, _ = jni.Env(env).GetJavaVM()
-	}
+func connect(pos int) {
 
 	con, err := net.Dial("tcp", friends[pos].address)
-	for err == nil {
+	for err != nil {
 		con, err = net.Dial("tcp", friends[pos].address)
 		ErrHandler(err)
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(1 * time.Second)
 	}
 
 	publicKey := marshalPublicKey(&profile.privateKey.PublicKey)
@@ -252,50 +247,60 @@ func handleConnection(con net.Conn) {
 		err := con.Close()
 		ErrHandler(err)
 	}(con)
-	println("handling")
+
+	log.Println("handling")
+
+	profilePublicKey := marshalPublicKey(&profile.privateKey.PublicKey)
 
 	clientReader := bufio.NewReader(con)
-	publicKeyLen := len(marshalPublicKey(&profile.privateKey.PublicKey))
+	publicKeyLen := len(profilePublicKey)
 	println(publicKeyLen)
-	key, err := clientReader.Peek(publicKeyLen)
+	clientKey, err := clientReader.Peek(publicKeyLen)
 	ErrHandler(err)
 	_, err = clientReader.Discard(publicKeyLen)
 	ErrHandler(err)
 
-	unmarshalPublicKeyBytes := unmarshalPublicKey(key)
-	publicKeyString := encPublicKey(&unmarshalPublicKeyBytes)
-	userId := getUserByPublicKey(publicKeyString)
-	println("connected: ", userId, publicKeyString)
-	if userId == 0 {
-		println("not found in database")
-		return
+	var clientId int
+
+	clientPublicKeyString := encPublicKey(clientKey)
+	profilePublicKeyString := encPublicKey(profilePublicKey)
+	log.Println("profile public key:", profilePublicKeyString)
+	log.Println("client public key:", clientPublicKeyString)
+
+	if profilePublicKeyString != clientPublicKeyString {
+		clientId = getUserByPublicKey(clientPublicKeyString)
+		if clientId == 0 {
+			log.Println("not found in database")
+			return
+		}
 	}
 
+	log.Println("connected: ", clientId, clientPublicKeyString)
+
 	wg.Add(2)
-	if _, ok := connections[userId]; !ok {
-		println("connection not found adding...")
-		connections[userId] = con
+	if _, ok := connections[clientId]; !ok {
+		log.Println("connection not found adding...")
+		connections[clientId] = con
 	} else {
-		println("connection already connected")
-		con = connections[userId]
+		log.Println("connection already connected")
+		//con = connections[clientId]
 	}
 	wg.Done()
 
-	println(con.RemoteAddr().String())
-	println("bufio")
+	log.Println(con.RemoteAddr().String())
+	log.Println("bufio")
 	for {
 		// Waiting for the client request
-		println("reading")
+		log.Println("reading")
 		state, err := clientReader.Peek(9)
 		ErrHandler(err)
 		_, err = clientReader.Discard(9)
 		ErrHandler(err)
 		count := binary.BigEndian.Uint64(state[0:8])
-		println("Count:", count)
+		log.Println("Count:", count)
 		dataStrOutput.io, err = clientReader.Peek(int(count))
 		ErrHandler(err)
 		_, err = clientReader.Discard(int(count))
-		ErrHandler(err)
 		switch err {
 		case nil:
 			log.Println(dataStrOutput.io)
@@ -307,8 +312,8 @@ func handleConnection(con net.Conn) {
 			return
 		}
 
-		println("updating callback")
-		updateCall(int(count), userId)
+		log.Println("updating callback")
+		updateCall(int(count), clientId)
 	}
 }
 
