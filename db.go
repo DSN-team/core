@@ -13,7 +13,7 @@ var db *sql.DB
 
 func createUsersTable() {
 	log.Println("creating users table")
-	_, err := db.Exec("create table if not exists users (id integer not null constraint users_pk primary key autoincrement, username text, address text not null, public_key text not null, is_friend integer default 0)")
+	_, err := db.Exec("create table if not exists users (id integer not null constraint users_pk primary key autoincrement, profile_id integer not null, username text, address text not null, public_key text not null, is_friend integer default 0)")
 	ErrHandler(err)
 	_, err = db.Exec("create unique index if not exists users_id_uindex on users (id)")
 	ErrHandler(err)
@@ -38,13 +38,13 @@ func startDB() {
 
 func addUser(user User) {
 	log.Println("Adding user", user.username)
-	_, err := db.Exec("INSERT INTO users (username,address,public_key,is_friend) VALUES ($0,$1,$2,$3)", user.username, user.address, encPublicKey(marshalPublicKey(user.publicKey)), user.isFriend)
+	_, err := db.Exec("INSERT INTO users (profile_id,username,address,public_key,is_friend) VALUES ($0,$1,$2,$3,$5)", profile.id, user.username, user.address, encPublicKey(marshalPublicKey(user.publicKey)), user.isFriend)
 	ErrHandler(err)
 }
 
 func getFriends() []User {
 	log.Println("Getting friends")
-	rows, err := db.Query("SELECT id, username, address, public_key, is_friend FROM users WHERE is_friend = 1")
+	rows, err := db.Query("SELECT id, username, address, public_key, is_friend FROM users WHERE is_friend = 1 and profile_id = $0", profile.id)
 	if ErrHandler(err) {
 		return nil
 	}

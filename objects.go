@@ -11,6 +11,7 @@ type User struct {
 }
 
 type Profile struct {
+	id         int
 	username   string
 	password   string
 	address    string

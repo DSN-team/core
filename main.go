@@ -28,12 +28,11 @@ type strBuffer struct {
 
 var dataStrOutput = &strBuffer{}
 var dataStrInput = &strBuffer{}
-var connections = make(map[int]net.Conn)
+var connections = &sync.Map{}
 
 var callBackBufferPtr unsafe.Pointer
 var callBackBufferCap int
 var workingVM jni.VM
-var wg sync.WaitGroup
 
 var profile Profile
 var profiles []ShowProfile
@@ -65,6 +64,7 @@ func Java_com_dsnteam_dsn_CoreManager_register(env uintptr, _ uintptr, usernameI
 func Java_com_dsnteam_dsn_CoreManager_login(env uintptr, _ uintptr, pos int, passwordIn uintptr) (result bool) {
 	password := string(jni.Env(env).GetStringUTF(passwordIn))
 	var privateKeyEncBytes []byte
+	profile.id = profiles[pos].id
 	profile.username, profile.address, privateKeyEncBytes = getProfileByID(profiles[pos].id)
 	if privateKeyEncBytes == nil {
 		return false
@@ -202,8 +202,19 @@ func connect(pos int) {
 	publicKey := marshalPublicKey(&profile.privateKey.PublicKey)
 	_, err = con.Write(publicKey)
 	ErrHandler(err)
-	println("connected to target")
-	go handleConnection(con)
+
+	targetId := friends[pos].id
+
+	if _, ok := connections.Load(targetId); !ok {
+		log.Println("connection not found adding...")
+		connections.Store(targetId, con)
+	} else {
+		log.Println("connection already connected")
+		return
+	}
+
+	println("connected to target", targetId)
+	go handleConnection(targetId, con)
 }
 
 func server(address string) {
@@ -218,7 +229,45 @@ func server(address string) {
 		con, err := ln.Accept()
 		ErrHandler(err)
 		println("accepted server client")
-		go handleConnection(con)
+
+		profilePublicKey := marshalPublicKey(&profile.privateKey.PublicKey)
+
+		clientReader := bufio.NewReader(con)
+		publicKeyLen := len(profilePublicKey)
+		println(publicKeyLen)
+		clientKey, err := clientReader.Peek(publicKeyLen)
+		ErrHandler(err)
+		_, err = clientReader.Discard(publicKeyLen)
+		ErrHandler(err)
+
+		log.Println("reader size:", clientReader.Size())
+
+		var clientId int
+
+		clientPublicKeyString := encPublicKey(clientKey)
+		profilePublicKeyString := encPublicKey(profilePublicKey)
+		log.Println("profile public key:", profilePublicKeyString)
+		log.Println("client public key:", clientPublicKeyString)
+
+		if profilePublicKeyString != clientPublicKeyString {
+			clientId = getUserByPublicKey(clientPublicKeyString)
+			if clientId == 0 {
+				log.Println("not found in database")
+				return
+			}
+		}
+
+		log.Println("connected:", clientId, clientPublicKeyString)
+
+		if _, ok := connections.Load(clientId); !ok {
+			log.Println("connection not found adding...")
+			connections.Store(clientId, con)
+		} else {
+			log.Println("connection already connected")
+			return
+		}
+
+		go handleConnection(clientId, con)
 	}
 }
 
@@ -242,52 +291,16 @@ func Java_com_dsnteam_dsn_CoreManager_setCallBackBuffer(env uintptr, _ uintptr, 
 }
 
 //Symmetrical connection for TCP between f2f
-func handleConnection(con net.Conn) {
+func handleConnection(clientId int, con net.Conn) {
+	log.Println("handling")
+
 	defer func(con net.Conn) {
 		err := con.Close()
 		ErrHandler(err)
 	}(con)
 
-	log.Println("handling")
-
-	profilePublicKey := marshalPublicKey(&profile.privateKey.PublicKey)
-
 	clientReader := bufio.NewReader(con)
-	publicKeyLen := len(profilePublicKey)
-	println(publicKeyLen)
-	clientKey, err := clientReader.Peek(publicKeyLen)
-	ErrHandler(err)
-	_, err = clientReader.Discard(publicKeyLen)
-	ErrHandler(err)
 
-	var clientId int
-
-	clientPublicKeyString := encPublicKey(clientKey)
-	profilePublicKeyString := encPublicKey(profilePublicKey)
-	log.Println("profile public key:", profilePublicKeyString)
-	log.Println("client public key:", clientPublicKeyString)
-
-	if profilePublicKeyString != clientPublicKeyString {
-		clientId = getUserByPublicKey(clientPublicKeyString)
-		if clientId == 0 {
-			log.Println("not found in database")
-			return
-		}
-	}
-
-	log.Println("connected: ", clientId, clientPublicKeyString)
-
-	wg.Add(2)
-	if _, ok := connections[clientId]; !ok {
-		log.Println("connection not found adding...")
-		connections[clientId] = con
-	} else {
-		log.Println("connection already connected")
-		//con = connections[clientId]
-	}
-	wg.Done()
-
-	log.Println(con.RemoteAddr().String())
 	log.Println("bufio")
 	for {
 		// Waiting for the client request
@@ -320,16 +333,16 @@ func handleConnection(con net.Conn) {
 //export Java_com_dsnteam_dsn_CoreManager_writeBytes
 func Java_com_dsnteam_dsn_CoreManager_writeBytes(env uintptr, _ uintptr, inBuffer uintptr, lenIn int, userId int) {
 	var con net.Conn
-	wg.Add(2)
-	if _, ok := connections[userId]; !ok {
-		println("Not connected to:", userId)
+	if _, ok := connections.Load(userId); !ok {
+		log.Println("Not connected to:", userId)
 		return
-	} else {
-		con = connections[userId]
 	}
-	wg.Done()
+	value, _ := connections.Load(userId)
+	con = value.(net.Conn)
 
-	println("env write:", env)
+	log.Println("writing to:", con.RemoteAddr())
+
+	log.Println("env write:", env)
 	defer runtime.KeepAlive(dataStrInput.io)
 	point, size := jni.Env(env).GetDirectBufferAddress(inBuffer), jni.Env(env).GetDirectBufferCapacity(inBuffer)
 
@@ -349,11 +362,11 @@ func Java_com_dsnteam_dsn_CoreManager_writeBytes(env uintptr, _ uintptr, inBuffe
 		bs[8] = '\n'
 		bytes := append(bs, dataStrInput.io...)
 		println("ClientSend:", bytes, " count:", lenIn)
-		//wg.Add(1)
+
 		if _, err = con.Write(bytes); err != nil {
 			log.Printf("failed to send the client request: %v\n", err)
 		}
-		//wg.Done()
+
 	case io.EOF:
 		log.Println("client closed the connection")
 		return
