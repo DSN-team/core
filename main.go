@@ -38,18 +38,16 @@ var profile Profile
 var profiles []ShowProfile
 var friends []User
 
+var jniUsed = true
+
 func main() {
+	jniUsed = false
 	println("main started")
 }
-
-//export Java_com_dsnteam_dsn_CoreManager_initDB
-func Java_com_dsnteam_dsn_CoreManager_initDB(env uintptr, _ uintptr) {
+func initDB() {
 	startDB()
 }
-
-//export Java_com_dsnteam_dsn_CoreManager_register
-func Java_com_dsnteam_dsn_CoreManager_register(env uintptr, _ uintptr, usernameIn uintptr, passwordIn uintptr) (result bool) {
-	username, password := string(jni.Env(env).GetStringUTF(usernameIn)), string(jni.Env(env).GetStringUTF(passwordIn))
+func register(username, password string) bool {
 	key := genProfileKey()
 	if key == nil {
 		return false
@@ -60,9 +58,7 @@ func Java_com_dsnteam_dsn_CoreManager_register(env uintptr, _ uintptr, usernameI
 	return true
 }
 
-//export Java_com_dsnteam_dsn_CoreManager_login
-func Java_com_dsnteam_dsn_CoreManager_login(env uintptr, _ uintptr, pos int, passwordIn uintptr) (result bool) {
-	password := string(jni.Env(env).GetStringUTF(passwordIn))
+func login(password string, pos int) (result bool) {
 	var privateKeyEncBytes []byte
 	profile.id = profiles[pos].id
 	profile.username, profile.address, privateKeyEncBytes = getProfileByID(profiles[pos].id)
@@ -73,113 +69,34 @@ func Java_com_dsnteam_dsn_CoreManager_login(env uintptr, _ uintptr, pos int, pas
 	fmt.Println("login status:", result)
 	return
 }
-
-//export Java_com_dsnteam_dsn_CoreManager_loadProfiles
-func Java_com_dsnteam_dsn_CoreManager_loadProfiles(env uintptr, _ uintptr) int {
+func loadProfiles() int {
 	profiles = getProfiles()
 	return len(profiles)
 }
 
-//export Java_com_dsnteam_dsn_CoreManager_getProfilesIds
-func Java_com_dsnteam_dsn_CoreManager_getProfilesIds(env uintptr, _ uintptr) (ids uintptr) {
-	ids = jni.Env(env).NewIntArray(len(profiles))
-	for i := 0; i < len(profiles); i++ {
-		jni.Env(env).SetIntArrayElement(ids, i, profiles[i].id)
-	}
-	return
+func getProfilePublicKey() string {
+	return encPublicKey(marshalPublicKey(&profile.privateKey.PublicKey))
 }
 
-//export Java_com_dsnteam_dsn_CoreManager_getProfilesNames
-func Java_com_dsnteam_dsn_CoreManager_getProfilesNames(env uintptr, _ uintptr) (usernames uintptr) {
-	dataType := jni.Env(env).FindClass("Ljava/lang/String;")
-	usernames = jni.Env(env).NewObjectArray(len(profiles), dataType, 0)
-	for i := 0; i < len(profiles); i++ {
-		jni.Env(env).SetObjectArrayElement(usernames, i, jni.Env(env).NewString(profiles[i].username))
-	}
-	return
-}
-
-//export Java_com_dsnteam_dsn_CoreManager_getProfilePublicKey
-func Java_com_dsnteam_dsn_CoreManager_getProfilePublicKey(env uintptr, _ uintptr) uintptr {
-	return jni.Env(env).NewString(encPublicKey(marshalPublicKey(&profile.privateKey.PublicKey)))
-}
-
-//export Java_com_dsnteam_dsn_CoreManager_getProfileName
-func Java_com_dsnteam_dsn_CoreManager_getProfileName(env uintptr, _ uintptr) uintptr {
-	return jni.Env(env).NewString(profile.username)
-}
-
-//export Java_com_dsnteam_dsn_CoreManager_getProfileAddress
-func Java_com_dsnteam_dsn_CoreManager_getProfileAddress(env uintptr, _ uintptr) uintptr {
-	return jni.Env(env).NewString(profile.address)
-}
-
-//export Java_com_dsnteam_dsn_CoreManager_addFriend
-func Java_com_dsnteam_dsn_CoreManager_addFriend(env uintptr, _ uintptr, addressIn uintptr, publicKeyIn uintptr) {
-	address, publicKey := string(jni.Env(env).GetStringUTF(addressIn)), string(jni.Env(env).GetStringUTF(publicKeyIn))
+func addFriend(address, publicKey string) {
 	decryptedPublicKey := unmarshalPublicKey(decPublicKey(publicKey))
 	user := User{address: address, publicKey: &decryptedPublicKey, isFriend: true}
 	addUser(user)
 }
 
-//export Java_com_dsnteam_dsn_CoreManager_loadFriends
-func Java_com_dsnteam_dsn_CoreManager_loadFriends(env uintptr, _ uintptr) int {
+func loadFriends() int {
 	println("Loading friends from db")
 	friends = getFriends()
 	return len(friends)
 }
 
-//export Java_com_dsnteam_dsn_CoreManager_getFriendsIds
-func Java_com_dsnteam_dsn_CoreManager_getFriendsIds(env uintptr, _ uintptr) (ids uintptr) {
-	ids = jni.Env(env).NewIntArray(len(friends))
-	for i := 0; i < len(friends); i++ {
-		jni.Env(env).SetIntArrayElement(ids, i, friends[i].id)
-	}
-	return
-}
-
-//export Java_com_dsnteam_dsn_CoreManager_getFriendsNames
-func Java_com_dsnteam_dsn_CoreManager_getFriendsNames(env uintptr, _ uintptr) (usernames uintptr) {
-	//friends = getFriends()
-	dataType := jni.Env(env).FindClass("Ljava/lang/String;")
-	usernames = jni.Env(env).NewObjectArray(len(friends), dataType, 0)
-	for i := 0; i < len(friends); i++ {
-		jni.Env(env).SetObjectArrayElement(usernames, i, jni.Env(env).NewString(friends[i].username))
-	}
-	return
-}
-
-//export Java_com_dsnteam_dsn_CoreManager_getFriendsAddresses
-func Java_com_dsnteam_dsn_CoreManager_getFriendsAddresses(env uintptr, _ uintptr) (address uintptr) {
-	//friends = getFriends()
-	dataType := jni.Env(env).FindClass("Ljava/lang/String;")
-	address = jni.Env(env).NewObjectArray(len(friends), dataType, 0)
-	for i := 0; i < len(friends); i++ {
-		jni.Env(env).SetObjectArrayElement(address, i, jni.Env(env).NewString(friends[i].address))
-	}
-	return
-}
-
-//export Java_com_dsnteam_dsn_CoreManager_getFriendsPublicKeys
-func Java_com_dsnteam_dsn_CoreManager_getFriendsPublicKeys(env uintptr, _ uintptr) (publicKey uintptr) {
-	//friends = getFriends()
-	dataType := jni.Env(env).FindClass("Ljava/lang/String;")
-	publicKey = jni.Env(env).NewObjectArray(len(friends), dataType, 0)
-	for i := 0; i < len(friends); i++ {
-		jni.Env(env).SetObjectArrayElement(publicKey, i, jni.Env(env).NewString(encPublicKey(marshalPublicKey(friends[i].publicKey))))
-	}
-	return
-}
-
-//export Java_com_dsnteam_dsn_CoreManager_connectToFriends
-func Java_com_dsnteam_dsn_CoreManager_connectToFriends(env uintptr, _ uintptr) {
+func connectToFriends() {
 	for i := 0; i < len(friends); i++ {
 		go connect(i)
 	}
 }
 
-//export Java_com_dsnteam_dsn_CoreManager_connectToFriend
-func Java_com_dsnteam_dsn_CoreManager_connectToFriend(env uintptr, _ uintptr, userId int) {
+func connectToFriend(userId int) {
 	for i := 0; i < len(friends); i++ {
 		go func(index int) {
 			if friends[index].id == userId {
@@ -187,6 +104,47 @@ func Java_com_dsnteam_dsn_CoreManager_connectToFriend(env uintptr, _ uintptr, us
 				return
 			}
 		}(i)
+	}
+}
+
+func runServer(address string) {
+	go server(address)
+}
+
+//dataStrInput.io must be non null
+func writeBytes(userId, lenIn int) {
+
+	var con net.Conn
+	if _, ok := connections.Load(userId); !ok {
+		log.Println("Not connected to:", userId)
+		return
+	}
+	value, _ := connections.Load(userId)
+	con = value.(net.Conn)
+	runtime.KeepAlive(dataStrInput.io)
+	log.Println("writing to:", con.RemoteAddr())
+
+	log.Println("input:", dataStrInput.io)
+	println("input str:", string(dataStrInput.io))
+
+	switch err {
+	case nil:
+		bs := make([]byte, 9)
+		binary.BigEndian.PutUint64(bs, uint64(lenIn))
+		bs[8] = '\n'
+		bytes := append(bs, dataStrInput.io...)
+		println("ClientSend:", bytes, " count:", lenIn)
+
+		if _, err = con.Write(bytes); err != nil {
+			log.Printf("failed to send the client request: %v\n", err)
+		}
+
+	case io.EOF:
+		log.Println("client closed the connection")
+		return
+	default:
+		log.Printf("client error: %v\n", err)
+		return
 	}
 }
 
@@ -271,25 +229,6 @@ func server(address string) {
 	}
 }
 
-//Инициализировать структуры и подключение
-
-//export Java_com_dsnteam_dsn_CoreManager_runServer
-func Java_com_dsnteam_dsn_CoreManager_runServer(env uintptr, _ uintptr, addressIn uintptr) {
-	address := string(jni.Env(env).GetStringUTF(addressIn))
-	println("env run:", env)
-	if env != 0 {
-		workingVM, _ = jni.Env(env).GetJavaVM()
-	}
-
-	go server(address)
-}
-
-//export Java_com_dsnteam_dsn_CoreManager_setCallBackBuffer
-func Java_com_dsnteam_dsn_CoreManager_setCallBackBuffer(env uintptr, _ uintptr, jniBuffer uintptr) {
-	callBackBufferPtr = jni.Env(env).GetDirectBufferAddress(jniBuffer)
-	callBackBufferCap = jni.Env(env).GetDirectBufferCapacity(jniBuffer)
-}
-
 //Symmetrical connection for TCP between f2f
 func handleConnection(clientId int, con net.Conn) {
 	log.Println("handling")
@@ -330,52 +269,6 @@ func handleConnection(clientId int, con net.Conn) {
 	}
 }
 
-//export Java_com_dsnteam_dsn_CoreManager_writeBytes
-func Java_com_dsnteam_dsn_CoreManager_writeBytes(env uintptr, _ uintptr, inBuffer uintptr, lenIn int, userId int) {
-	var con net.Conn
-	if _, ok := connections.Load(userId); !ok {
-		log.Println("Not connected to:", userId)
-		return
-	}
-	value, _ := connections.Load(userId)
-	con = value.(net.Conn)
-
-	log.Println("writing to:", con.RemoteAddr())
-
-	log.Println("env write:", env)
-	defer runtime.KeepAlive(dataStrInput.io)
-	point, size := jni.Env(env).GetDirectBufferAddress(inBuffer), jni.Env(env).GetDirectBufferCapacity(inBuffer)
-
-	sh := (*reflect.SliceHeader)(unsafe.Pointer(&dataStrInput.io))
-	sh.Data = uintptr(point)
-	sh.Len = lenIn
-	sh.Cap = size
-
-	runtime.KeepAlive(dataStrInput.io)
-	log.Println("input:", dataStrInput.io)
-	println("input str:", string(dataStrInput.io))
-
-	switch err {
-	case nil:
-		bs := make([]byte, 9)
-		binary.BigEndian.PutUint64(bs, uint64(lenIn))
-		bs[8] = '\n'
-		bytes := append(bs, dataStrInput.io...)
-		println("ClientSend:", bytes, " count:", lenIn)
-
-		if _, err = con.Write(bytes); err != nil {
-			log.Printf("failed to send the client request: %v\n", err)
-		}
-
-	case io.EOF:
-		log.Println("client closed the connection")
-		return
-	default:
-		log.Printf("client error: %v\n", err)
-		return
-	}
-}
-
 //Realisation for platform
 func updateCall(count int, userId int) {
 	//Call Application to read structure and update internal data interpretations, update UI.
@@ -383,21 +276,22 @@ func updateCall(count int, userId int) {
 	env, _ = workingVM.AttachCurrentThread()
 	//Test
 	println(dataStrOutput.io)
-	println("WorkingEnv:", env)
-	classInput := env.FindClass("com/dsnteam/dsn/CoreManager")
-	println("class_input:", classInput)
-	methodId := env.GetStaticMethodID(classInput, "getUpdateCallBack", "(II)V")
-	println("MethodID:", methodId)
-	var bData []byte
-
-	sh := (*reflect.SliceHeader)(unsafe.Pointer(&bData))
-	sh.Data = uintptr(callBackBufferPtr)
-	sh.Cap = callBackBufferCap
-	sh.Len = len(dataStrOutput.io)
-	println("buffer pointer:", callBackBufferPtr)
-	copy(bData, dataStrOutput.io)
-	println("buffer write done")
-	env.CallStaticVoidMethodA(classInput, methodId, jni.Jvalue(count), jni.Jvalue(userId))
-	workingVM.DetachCurrentThread()
-	runtime.KeepAlive(bData)
+	if jniUsed {
+		println("WorkingEnv:", env)
+		classInput := env.FindClass("com/dsnteam/dsn/CoreManager")
+		println("class_input:", classInput)
+		methodId := env.GetStaticMethodID(classInput, "getUpdateCallBack", "(II)V")
+		println("MethodID:", methodId)
+		var bData []byte
+		sh := (*reflect.SliceHeader)(unsafe.Pointer(&bData))
+		sh.Data = uintptr(callBackBufferPtr)
+		sh.Cap = callBackBufferCap
+		sh.Len = len(dataStrOutput.io)
+		println("buffer pointer:", callBackBufferPtr)
+		copy(bData, dataStrOutput.io)
+		println("buffer write done")
+		env.CallStaticVoidMethodA(classInput, methodId, jni.Jvalue(count), jni.Jvalue(userId))
+		workingVM.DetachCurrentThread()
+		runtime.KeepAlive(bData)
+	}
 }
