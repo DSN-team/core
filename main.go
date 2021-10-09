@@ -40,9 +40,18 @@ var friends []User
 
 var jniUsed = true
 
+func testAES() {
+	profileKey := genProfileKey()
+	profile.privateKey = profileKey
+	publicKey := profileKey.PublicKey
+	println("publicKey:", (publicKey).X.Uint64())
+	println(string(decryptAES(encryptAES(&publicKey, []byte("12312")))))
+}
+
 func main() {
 	jniUsed = false
 	println("main started")
+	testAES()
 }
 func initDB() {
 	startDB()
