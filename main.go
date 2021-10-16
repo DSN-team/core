@@ -16,8 +16,8 @@ type strBuffer struct {
 	io []byte
 }
 
-var dataStrOutput = &strBuffer{}
-var dataStrInput = &strBuffer{}
+var DataStrOutput = &strBuffer{}
+var DataStrInput = &strBuffer{}
 var connections = &sync.Map{}
 
 var SelectedProfile Profile
@@ -65,11 +65,11 @@ func LoadProfiles() int {
 }
 
 func GetProfilePublicKey() string {
-	return encPublicKey(marshalPublicKey(&SelectedProfile.PrivateKey.PublicKey))
+	return EncPublicKey(MarshalPublicKey(&SelectedProfile.PrivateKey.PublicKey))
 }
 
 func AddFriend(address, publicKey string) {
-	decryptedPublicKey := unmarshalPublicKey(decPublicKey(publicKey))
+	decryptedPublicKey := UnmarshalPublicKey(DecPublicKey(publicKey))
 	user := User{Address: address, PublicKey: &decryptedPublicKey, IsFriend: true}
 	addUser(user)
 }
@@ -109,18 +109,18 @@ func WriteBytes(userId, lenIn int) {
 	}
 	value, _ := connections.Load(userId)
 	con = value.(net.Conn)
-	runtime.KeepAlive(dataStrInput.io)
+	runtime.KeepAlive(DataStrInput.io)
 	log.Println("writing to:", con.RemoteAddr())
 
-	log.Println("input:", dataStrInput.io)
-	println("input str:", string(dataStrInput.io))
+	log.Println("input:", DataStrInput.io)
+	println("input str:", string(DataStrInput.io))
 
 	switch err {
 	case nil:
 		bs := make([]byte, 9)
 		binary.BigEndian.PutUint64(bs, uint64(lenIn))
 		bs[8] = '\n'
-		bytes := append(bs, dataStrInput.io...)
+		bytes := append(bs, DataStrInput.io...)
 		println("ClientSend:", bytes, " count:", lenIn)
 
 		if _, err = con.Write(bytes); err != nil {
@@ -144,7 +144,7 @@ func connect(pos int) {
 		time.Sleep(1 * time.Second)
 	}
 
-	publicKey := marshalPublicKey(&SelectedProfile.PrivateKey.PublicKey)
+	publicKey := MarshalPublicKey(&SelectedProfile.PrivateKey.PublicKey)
 	_, err = con.Write(publicKey)
 	ErrHandler(err)
 
@@ -175,7 +175,7 @@ func server(address string) {
 		ErrHandler(err)
 		println("accepted server client")
 
-		profilePublicKey := marshalPublicKey(&SelectedProfile.PrivateKey.PublicKey)
+		profilePublicKey := MarshalPublicKey(&SelectedProfile.PrivateKey.PublicKey)
 
 		clientReader := bufio.NewReader(con)
 		publicKeyLen := len(profilePublicKey)
@@ -189,8 +189,8 @@ func server(address string) {
 
 		var clientId int
 
-		clientPublicKeyString := encPublicKey(clientKey)
-		profilePublicKeyString := encPublicKey(profilePublicKey)
+		clientPublicKeyString := EncPublicKey(clientKey)
+		profilePublicKeyString := EncPublicKey(profilePublicKey)
 		log.Println("SelectedProfile public key:", profilePublicKeyString)
 		log.Println("client public key:", clientPublicKeyString)
 
@@ -236,12 +236,12 @@ func handleConnection(clientId int, con net.Conn) {
 		ErrHandler(err)
 		count := binary.BigEndian.Uint64(state[0:8])
 		log.Println("Count:", count)
-		dataStrOutput.io, err = clientReader.Peek(int(count))
+		DataStrOutput.io, err = clientReader.Peek(int(count))
 		ErrHandler(err)
 		_, err = clientReader.Discard(int(count))
 		switch err {
 		case nil:
-			log.Println(dataStrOutput.io)
+			log.Println(DataStrOutput.io)
 		case io.EOF:
 			log.Println("client closed the connection by terminating the process")
 			return

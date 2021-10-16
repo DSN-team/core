@@ -38,7 +38,7 @@ func StartDB() {
 
 func addUser(user User) {
 	log.Println("Adding user", user.Username)
-	_, err := db.Exec("INSERT INTO users (profile_id,Username,Address,public_key,is_friend) VALUES ($0,$1,$2,$3,$5)", SelectedProfile.Id, user.Username, user.Address, encPublicKey(marshalPublicKey(user.PublicKey)), user.IsFriend)
+	_, err := db.Exec("INSERT INTO users (profile_id,Username,Address,public_key,is_friend) VALUES ($0,$1,$2,$3,$5)", SelectedProfile.Id, user.Username, user.Address, EncPublicKey(MarshalPublicKey(user.PublicKey)), user.IsFriend)
 	ErrHandler(err)
 }
 
@@ -60,7 +60,7 @@ func getFriends() []User {
 		if ErrHandler(err) {
 			continue
 		}
-		decryptedPublicKey := unmarshalPublicKey(decPublicKey(publicKey))
+		decryptedPublicKey := UnmarshalPublicKey(DecPublicKey(publicKey))
 		user.PublicKey = &decryptedPublicKey
 		users = append(users, user)
 	}
@@ -80,7 +80,7 @@ func getFriends() []User {
 //		if ErrHandler(err) {
 //			continue
 //		}
-//		user.PublicKey = decPublicKey(PublicKey)
+//		user.PublicKey = DecPublicKey(PublicKey)
 //		users = append(users, user)
 //	}
 //	return users

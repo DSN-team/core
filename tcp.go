@@ -15,7 +15,7 @@ func (u TcpStruct) sendData(callback func()) {
 	bs := make([]byte, 9)
 	binary.BigEndian.PutUint64(bs, uint64(len(u.data)))
 	bs[8] = '\n'
-	bytes := append(bs, dataStrInput.io...)
+	bytes := append(bs, DataStrInput.io...)
 	println("ClientSend:", bytes, " count:", len(u.data))
 
 	if _, err = u.con.Write(bytes); err != nil {

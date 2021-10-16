@@ -24,13 +24,13 @@ func genProfileKey() (key *ecdsa.PrivateKey) {
 	return
 }
 
-func encPublicKey(key []byte) (keyString string) {
+func EncPublicKey(key []byte) (keyString string) {
 	println("encrypting public key")
 	keyString = base64.StdEncoding.EncodeToString(key)
 	return
 }
 
-func decPublicKey(data string) []byte {
+func DecPublicKey(data string) []byte {
 	println("decrypting public key")
 	publicKeyBytes, err := base64.StdEncoding.DecodeString(data)
 	if ErrHandler(err) {
@@ -39,13 +39,13 @@ func decPublicKey(data string) []byte {
 	return publicKeyBytes
 }
 
-func marshalPublicKey(key *ecdsa.PublicKey) (data []byte) {
+func MarshalPublicKey(key *ecdsa.PublicKey) (data []byte) {
 	println("marshal Public Key", key)
 	data = elliptic.Marshal(key, key.X, key.Y)
 	return
 }
 
-func unmarshalPublicKey(data []byte) (key ecdsa.PublicKey) {
+func UnmarshalPublicKey(data []byte) (key ecdsa.PublicKey) {
 	println("unmarshal Public Key", data)
 	x, y := elliptic.Unmarshal(Curve(), data)
 	key = ecdsa.PublicKey{Curve: Curve(), X: x, Y: y}
