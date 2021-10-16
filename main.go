@@ -109,18 +109,18 @@ func WriteBytes(userId, lenIn int) {
 	}
 	value, _ := connections.Load(userId)
 	con = value.(net.Conn)
-	runtime.KeepAlive(DataStrInput.io)
+	runtime.KeepAlive(DataStrInput.Io)
 	log.Println("writing to:", con.RemoteAddr())
 
-	log.Println("input:", DataStrInput.io)
-	println("input str:", string(DataStrInput.io))
+	log.Println("input:", DataStrInput.Io)
+	println("input str:", string(DataStrInput.Io))
 
 	switch err {
 	case nil:
 		bs := make([]byte, 9)
 		binary.BigEndian.PutUint64(bs, uint64(lenIn))
 		bs[8] = '\n'
-		bytes := append(bs, DataStrInput.io...)
+		bytes := append(bs, DataStrInput.Io...)
 		println("ClientSend:", bytes, " count:", lenIn)
 
 		if _, err = con.Write(bytes); err != nil {
@@ -236,12 +236,12 @@ func handleConnection(clientId int, con net.Conn) {
 		ErrHandler(err)
 		count := binary.BigEndian.Uint64(state[0:8])
 		log.Println("Count:", count)
-		DataStrOutput.io, err = clientReader.Peek(int(count))
+		DataStrOutput.Io, err = clientReader.Peek(int(count))
 		ErrHandler(err)
 		_, err = clientReader.Discard(int(count))
 		switch err {
 		case nil:
-			log.Println(DataStrOutput.io)
+			log.Println(DataStrOutput.Io)
 		case io.EOF:
 			log.Println("client closed the connection by terminating the process")
 			return

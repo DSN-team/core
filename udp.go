@@ -16,7 +16,7 @@ func (u UdpStruct) sendData(callback func()) {
 	bs := make([]byte, 9)
 	binary.BigEndian.PutUint64(bs, uint64(len(u.data)))
 	bs[8] = '\n'
-	bytes := append(bs, DataStrInput.io...)
+	bytes := append(bs, DataStrInput.Io...)
 	println("ClientSend:", bytes, " count:", len(u.data))
 
 	if _, err = u.con.Write(bytes); err != nil {
