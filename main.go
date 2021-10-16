@@ -13,7 +13,7 @@ import (
 )
 
 type strBuffer struct {
-	io []byte
+	Io []byte
 }
 
 var DataStrOutput = &strBuffer{}
