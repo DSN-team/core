@@ -3,22 +3,22 @@ package core
 import "crypto/ecdsa"
 
 type User struct {
-	id        int
-	username  string
-	address   string
-	publicKey *ecdsa.PublicKey
-	isFriend  bool
+	Id        int
+	Username  string
+	Address   string
+	PublicKey *ecdsa.PublicKey
+	IsFriend  bool
 }
 
 type Profile struct {
-	id         int
-	username   string
-	password   string
-	address    string
-	privateKey *ecdsa.PrivateKey
+	Id         int
+	Username   string
+	Password   string
+	Address    string
+	PrivateKey *ecdsa.PrivateKey
 }
 
 type ShowProfile struct {
-	id       int
-	username string
+	Id       int
+	Username string
 }

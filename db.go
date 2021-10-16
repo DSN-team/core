@@ -13,17 +13,17 @@ var db *sql.DB
 
 func createUsersTable() {
 	log.Println("creating users table")
-	_, err := db.Exec("create table if not exists users (id integer not null constraint users_pk primary key autoincrement, profile_id integer not null, username text, address text not null, public_key text not null, is_friend integer default 0)")
+	_, err := db.Exec("create table if not exists users (Id integer not null constraint users_pk primary key autoincrement, profile_id integer not null, Username text, Address text not null, public_key text not null, is_friend integer default 0)")
 	ErrHandler(err)
-	_, err = db.Exec("create unique index if not exists users_id_uindex on users (id)")
+	_, err = db.Exec("create unique index if not exists users_id_uindex on users (Id)")
 	ErrHandler(err)
 }
 
 func createProfilesTable() {
 	log.Println("creating Profiles table")
-	_, err := db.Exec("create table if not exists Profiles (id integer not null constraint profiles_pk primary key autoincrement, username text, address text, privateKey text)")
+	_, err := db.Exec("create table if not exists Profiles (Id integer not null constraint profiles_pk primary key autoincrement, Username text, Address text, PrivateKey text)")
 	ErrHandler(err)
-	_, err = db.Exec("create unique index if not exists profiles_id_uindex on Profiles (id)")
+	_, err = db.Exec("create unique index if not exists profiles_id_uindex on Profiles (Id)")
 }
 
 func StartDB() {
@@ -37,14 +37,14 @@ func StartDB() {
 }
 
 func addUser(user User) {
-	log.Println("Adding user", user.username)
-	_, err := db.Exec("INSERT INTO users (profile_id,username,address,public_key,is_friend) VALUES ($0,$1,$2,$3,$5)", SelectedProfile.id, user.username, user.address, encPublicKey(marshalPublicKey(user.publicKey)), user.isFriend)
+	log.Println("Adding user", user.Username)
+	_, err := db.Exec("INSERT INTO users (profile_id,Username,Address,public_key,is_friend) VALUES ($0,$1,$2,$3,$5)", SelectedProfile.Id, user.Username, user.Address, encPublicKey(marshalPublicKey(user.PublicKey)), user.IsFriend)
 	ErrHandler(err)
 }
 
 func getFriends() []User {
 	log.Println("Getting Friends")
-	rows, err := db.Query("SELECT id, username, address, public_key, is_friend FROM users WHERE is_friend = 1 and profile_id = $0", SelectedProfile.id)
+	rows, err := db.Query("SELECT Id, Username, Address, public_key, is_friend FROM users WHERE is_friend = 1 and profile_id = $0", SelectedProfile.Id)
 	if ErrHandler(err) {
 		return nil
 	}
@@ -56,12 +56,12 @@ func getFriends() []User {
 	for rows.Next() {
 		var user User
 		var publicKey string
-		err = rows.Scan(&user.id, &user.username, &user.address, &publicKey, &user.isFriend)
+		err = rows.Scan(&user.Id, &user.Username, &user.Address, &publicKey, &user.IsFriend)
 		if ErrHandler(err) {
 			continue
 		}
 		decryptedPublicKey := unmarshalPublicKey(decPublicKey(publicKey))
-		user.publicKey = &decryptedPublicKey
+		user.PublicKey = &decryptedPublicKey
 		users = append(users, user)
 	}
 	return users
@@ -75,28 +75,28 @@ func getFriends() []User {
 //	var users []User
 //	for response.Next() {
 //		var user User
-//		var publicKey string
-//		err = response.Scan(&user.username, &user.address, &publicKey, &user.isFriend)
+//		var PublicKey string
+//		err = response.Scan(&user.Username, &user.Address, &PublicKey, &user.IsFriend)
 //		if ErrHandler(err) {
 //			continue
 //		}
-//		user.publicKey = decPublicKey(publicKey)
+//		user.PublicKey = decPublicKey(PublicKey)
 //		users = append(users, user)
 //	}
 //	return users
 //}
 
 func addProfile(profile Profile) {
-	log.Println("Adding SelectedProfile", profile.username)
+	log.Println("Adding SelectedProfile", profile.Username)
 	privateKeyBytes := encProfileKey()
-	_, err := db.Exec("INSERT INTO Profiles (username, address, privateKey) VALUES ($0,$1,$2)", profile.username, profile.address, string(privateKeyBytes))
+	_, err := db.Exec("INSERT INTO Profiles (Username, Address, PrivateKey) VALUES ($0,$1,$2)", profile.Username, profile.Address, string(privateKeyBytes))
 	ErrHandler(err)
 }
 
 func getProfiles() []ShowProfile {
 	log.Println("Getting Profiles")
 
-	rows, err := db.Query("SELECT id, username FROM Profiles")
+	rows, err := db.Query("SELECT Id, Username FROM Profiles")
 	if ErrHandler(err) {
 		return nil
 	}
@@ -109,7 +109,7 @@ func getProfiles() []ShowProfile {
 	var profiles []ShowProfile
 	for rows.Next() {
 		var profile ShowProfile
-		err = rows.Scan(&profile.id, &profile.username)
+		err = rows.Scan(&profile.Id, &profile.Username)
 		if ErrHandler(err) {
 			continue
 		}
@@ -120,7 +120,7 @@ func getProfiles() []ShowProfile {
 
 func getProfileByID(id int) (string, string, []byte) {
 	log.Println("Getting SelectedProfile by ID", id)
-	rows, err := db.Query("SELECT username, address, privateKey FROM Profiles WHERE id=$0", id)
+	rows, err := db.Query("SELECT Username, Address, PrivateKey FROM Profiles WHERE Id=$0", id)
 	if ErrHandler(err) {
 		return "", "", nil
 	}
@@ -144,7 +144,7 @@ func getProfileByID(id int) (string, string, []byte) {
 
 func getUserByPublicKey(publicKey string) int {
 	log.Println("Getting SelectedProfile by key")
-	rows, err := db.Query("SELECT id FROM users WHERE public_key=$0", publicKey)
+	rows, err := db.Query("SELECT Id FROM users WHERE public_key=$0", publicKey)
 	if ErrHandler(err) {
 		return 0
 	}
