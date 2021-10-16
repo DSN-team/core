@@ -53,9 +53,9 @@ func unmarshalPublicKey(data []byte) (key ecdsa.PublicKey) {
 }
 
 func encProfileKey() (data []byte) {
-	passwordHash := sha512.Sum512_256([]byte(profile.password))
+	passwordHash := sha512.Sum512_256([]byte(SelectedProfile.password))
 	iv := passwordHash[:aes.BlockSize]
-	key, err := x509.MarshalECPrivateKey(profile.privateKey)
+	key, err := x509.MarshalECPrivateKey(SelectedProfile.privateKey)
 	ErrHandler(err)
 	data = encryptCBC(key, iv, passwordHash[:aes.BlockSize])
 	return
@@ -65,7 +65,7 @@ func decProfileKey(encKey []byte, password string) bool {
 	passwordHash := sha512.Sum512_256([]byte(password))
 	iv := passwordHash[:aes.BlockSize]
 	data := decryptCBC(encKey, iv, passwordHash[:aes.BlockSize])
-	profile.privateKey, err = x509.ParseECPrivateKey(data)
+	SelectedProfile.privateKey, err = x509.ParseECPrivateKey(data)
 
 	if ErrHandler(err) {
 		return false
@@ -75,7 +75,7 @@ func decProfileKey(encKey []byte, password string) bool {
 }
 
 func encryptAES(otherPublicKey *ecdsa.PublicKey, in []byte) (out []byte) {
-	x, _ := otherPublicKey.Curve.ScalarMult(otherPublicKey.X, otherPublicKey.Y, profile.privateKey.D.Bytes())
+	x, _ := otherPublicKey.Curve.ScalarMult(otherPublicKey.X, otherPublicKey.Y, SelectedProfile.privateKey.D.Bytes())
 	if x == nil {
 		return nil
 	}
@@ -90,7 +90,7 @@ func encryptAES(otherPublicKey *ecdsa.PublicKey, in []byte) (out []byte) {
 		return
 	}
 
-	ephPub := elliptic.Marshal(otherPublicKey.Curve, profile.privateKey.PublicKey.X, profile.privateKey.PublicKey.Y)
+	ephPub := elliptic.Marshal(otherPublicKey.Curve, SelectedProfile.privateKey.PublicKey.X, SelectedProfile.privateKey.PublicKey.Y)
 	out = make([]byte, 1+len(ephPub)+aesBlockLength)
 	out[0] = byte(len(ephPub))
 	copy(out[1:], ephPub)
@@ -118,7 +118,7 @@ func decryptAES(in []byte) (out []byte) {
 		return nil
 	}
 
-	x, _ = profile.privateKey.Curve.ScalarMult(x, y, profile.privateKey.D.Bytes())
+	x, _ = SelectedProfile.privateKey.Curve.ScalarMult(x, y, SelectedProfile.privateKey.D.Bytes())
 	if x == nil {
 		return nil
 	}
