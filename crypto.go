@@ -1,4 +1,4 @@
-package main
+package dsn_go
 
 import (
 	"crypto/aes"
