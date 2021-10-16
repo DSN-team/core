@@ -1,4 +1,4 @@
-package dsn_go
+package core
 
 type NetworkInterface interface {
 	startTimer()
