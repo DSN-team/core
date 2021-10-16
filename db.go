@@ -26,7 +26,7 @@ func createProfilesTable() {
 	_, err = db.Exec("create unique index if not exists profiles_id_uindex on profiles (id)")
 }
 
-func startDB() {
+func StartDB() {
 	log.Println("initing db")
 	db, err = sql.Open("sqlite3", "data.db")
 	ErrHandler(err)
