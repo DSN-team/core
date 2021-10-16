@@ -1,4 +1,4 @@
-module github.com/DSN-team/dsn-go
+module github.com/DSN-team/core
 
 go 1.17
 
