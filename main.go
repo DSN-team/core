@@ -12,6 +12,8 @@ import (
 	"time"
 )
 
+var UpdateUI func(int, int)
+
 type strBuffer struct {
 	Io []byte
 }
@@ -252,5 +254,6 @@ func handleConnection(clientId int, con net.Conn) {
 
 		log.Println("updating callback")
 		//updateCall(int(count), clientId)
+		UpdateUI(int(count), clientId)
 	}
 }
