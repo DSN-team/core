@@ -27,11 +27,7 @@ var Profiles []ShowProfile
 var Friends []User
 
 func testAES() {
-	profileKey := genProfileKey()
-	SelectedProfile.PrivateKey = profileKey
-	publicKey := profileKey.PublicKey
-	println("PublicKey:", (publicKey).X.Uint64())
-	println(string(decryptAES(encryptAES(&publicKey, []byte("12312")))))
+
 }
 
 func Register(username, password string) bool {
@@ -55,6 +51,16 @@ func Login(password string, pos int) (result bool) {
 	result = decProfileKey(privateKeyEncBytes, password)
 	fmt.Println("Login status:", result)
 	return
+}
+func UsernamePos(username string) int {
+	profiles := getProfiles()
+	pos := 0
+	for i := 0; i < len(profiles); i++ {
+		if profiles[i].Username == username {
+			pos = i
+		}
+	}
+	return pos
 }
 func LoadProfiles() int {
 	Profiles = getProfiles()
