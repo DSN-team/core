@@ -14,10 +14,11 @@ func main() {
 	println("node:" + node)
 	println("username:" + username)
 	println("password:" + password)
-	core.Register(username, password)
-	core.Login(password, core.UsernamePos(username))
-	core.LoadProfiles()
-	core.LoadFriends()
+	core.StartDB()
+	core.Register(username, password) //already logged in after register
+	//core.LoadProfiles()
+	//core.Login(password, core.UsernamePos(username))
+	//core.LoadFriends()
 	port, _ := strconv.Atoi(node)
 	port += 25
 	switch node {

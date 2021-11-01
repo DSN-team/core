@@ -58,6 +58,7 @@ func UsernamePos(username string) int {
 	for i := 0; i < len(profiles); i++ {
 		if profiles[i].Username == username {
 			pos = i
+			break
 		}
 	}
 	return pos
