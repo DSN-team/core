@@ -34,11 +34,6 @@ func testAES() {
 	println(string(decryptAES(encryptAES(&publicKey, []byte("12312")))))
 }
 
-func main() {
-	println("main started")
-	testAES()
-}
-
 func Register(username, password string) bool {
 	key := genProfileKey()
 	if key == nil {
