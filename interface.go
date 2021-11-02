@@ -54,7 +54,7 @@ func Login(password string, pos int) (result bool) {
 }
 func UsernamePos(username string) int {
 	profiles := getProfiles()
-	pos := 0
+	pos := -1
 	for i := 0; i < len(profiles); i++ {
 		if profiles[i].Username == username {
 			pos = i

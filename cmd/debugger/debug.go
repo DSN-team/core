@@ -15,10 +15,14 @@ func main() {
 	println("username:" + username)
 	println("password:" + password)
 	core.StartDB()
-	core.Register(username, password) //already logged in after register
-	//core.LoadProfiles()
-	//core.Login(password, core.UsernamePos(username))
-	//core.LoadFriends()
+	core.LoadProfiles()
+	pos := core.UsernamePos(username)
+	if pos == -1 {
+		core.Register(username, password) //already logged in after register
+	} else {
+		core.Login(password, pos)
+		core.LoadFriends()
+	}
 	port, _ := strconv.Atoi(node)
 	port += 25
 	switch node {
