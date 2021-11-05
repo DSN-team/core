@@ -16,7 +16,7 @@ func RunProfile(nameNumber string) *core.Profile {
 	if pos == -1 {
 		singleProfile.Register(username, password, "127.0.0.1:3"+nameNumber) //already logged in after register
 	} else {
-		singleProfile.Login(password, "127.0.0.1:3"+nameNumber, pos)
+		singleProfile.Login(password, pos)
 		singleProfile.LoadFriends()
 	}
 	singleProfile.RunServer("127.0.0.1:3" + nameNumber)

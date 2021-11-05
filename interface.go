@@ -27,14 +27,14 @@ func (cur *Profile) Register(username, password, address string) bool {
 	return true
 }
 
-func (cur *Profile) Login(password, address string, pos int) (result bool) {
+func (cur *Profile) Login(password string, pos int) (result bool) {
 	var privateKeyEncBytes []byte
 	cur.Id = Profiles[pos].Id
 	cur.Username, cur.Address, privateKeyEncBytes = getProfileByID(Profiles[pos].Id)
-	if address != "" {
-		cur.Address = address
-		//TODO Here need to update DB
-	}
+	//if address != "" {
+	//	cur.Address = address
+	//	TODO Here need to update DB
+	//}
 	if privateKeyEncBytes == nil {
 		return false
 	}
