@@ -67,10 +67,15 @@ func (cur Profile) GetProfilePublicKey() string {
 	return EncPublicKey(MarshalPublicKey(&cur.PrivateKey.PublicKey))
 }
 
-func (cur Profile) AddFriend(address, publicKey string) {
+func (cur Profile) AddFriend(username, address, publicKey string) {
 	decryptedPublicKey := UnmarshalPublicKey(DecPublicKey(publicKey))
-	user := User{Address: address, PublicKey: &decryptedPublicKey, IsFriend: true}
-	cur.addUser(user)
+	id := cur.searchUser(username)
+	user := User{Username: username, Address: address, PublicKey: &decryptedPublicKey, IsFriend: true}
+	if id == -1 {
+		cur.addUser(user)
+	} else {
+		cur.editUser(id, user)
+	}
 }
 
 func (cur Profile) LoadFriends() int {

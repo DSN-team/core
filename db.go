@@ -36,10 +36,38 @@ func StartDB() {
 	createUsersTable()
 }
 
+func (cur Profile) searchUser(username string) (id int) {
+	log.Println("searching user, ", username)
+	rows, err := db.Query("SELECT Id FROM users WHERE Username = $0 limit 1", username)
+	id = -1
+	if ErrHandler(err) {
+		return
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		ErrHandler(err)
+	}(rows)
+	for rows.Next() {
+		err = rows.Scan(&id)
+		if ErrHandler(err) {
+			return
+		}
+	}
+	return
+}
+
 func (cur Profile) addUser(user User) {
 	log.Println("Adding user", user.Username)
 	_, err := db.Exec("INSERT INTO users (profile_id,Username,Address,public_key,is_friend) VALUES ($0,$1,$2,$3,$5)", cur.Id, user.Username, user.Address, EncPublicKey(MarshalPublicKey(user.PublicKey)), user.IsFriend)
 	ErrHandler(err)
+}
+
+func (cur Profile) editUser(id int, user User) {
+	log.Println("Editing user", id)
+	_, err := db.Exec("UPDATE users SET Address = $1, public_key = $2 WHERE Id = $0", id, user.Address, user.PublicKey)
+	if ErrHandler(err) {
+		return
+	}
 }
 
 func (cur Profile) getFriends() []User {
