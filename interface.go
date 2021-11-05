@@ -13,33 +13,27 @@ import (
 
 var UpdateUI func(int, int)
 
-type strBuffer struct {
-	Io []byte
-}
-
-var DataStrOutput = &strBuffer{}
-var DataStrInput = &strBuffer{}
 var Profiles []ShowProfile
 
-func testAES() {
-
-}
-
-func (cur Profile) Register(username, password string) bool {
+func (cur *Profile) Register(username, password, address string) bool {
 	key := genProfileKey()
 	if key == nil {
 		return false
 	}
-	cur = Profile{Username: username, Password: password, PrivateKey: key}
+	cur.Username, cur.Password, cur.Address, cur.PrivateKey = username, password, address, key
 	log.Println(cur)
-	addProfile(cur)
+	cur.Id = addProfile(cur)
 	return true
 }
 
-func (cur Profile) Login(password string, pos int) (result bool) {
+func (cur *Profile) Login(password, address string, pos int) (result bool) {
 	var privateKeyEncBytes []byte
 	cur.Id = Profiles[pos].Id
 	cur.Username, cur.Address, privateKeyEncBytes = getProfileByID(Profiles[pos].Id)
+	if address != "" {
+		cur.Address = address
+		//TODO Here need to update DB
+	}
 	if privateKeyEncBytes == nil {
 		return false
 	}
@@ -63,11 +57,11 @@ func LoadProfiles() int {
 	return len(Profiles)
 }
 
-func (cur Profile) GetProfilePublicKey() string {
+func (cur *Profile) GetProfilePublicKey() string {
 	return EncPublicKey(MarshalPublicKey(&cur.PrivateKey.PublicKey))
 }
 
-func (cur Profile) AddFriend(username, address, publicKey string) {
+func (cur *Profile) AddFriend(username, address, publicKey string) {
 	decryptedPublicKey := UnmarshalPublicKey(DecPublicKey(publicKey))
 	id := cur.searchUser(username)
 	user := User{Username: username, Address: address, PublicKey: &decryptedPublicKey, IsFriend: true}
@@ -78,19 +72,19 @@ func (cur Profile) AddFriend(username, address, publicKey string) {
 	}
 }
 
-func (cur Profile) LoadFriends() int {
+func (cur *Profile) LoadFriends() int {
 	println("Loading Friends from db")
 	cur.Friends = cur.getFriends()
 	return len(cur.Friends)
 }
 
-func (cur Profile) ConnectToFriends() {
+func (cur *Profile) ConnectToFriends() {
 	for i := 0; i < len(cur.Friends); i++ {
 		go cur.connect(i)
 	}
 }
 
-func (cur Profile) ConnectToFriend(userId int) {
+func (cur *Profile) ConnectToFriend(userId int) {
 	for i := 0; i < len(cur.Friends); i++ {
 		go func(index int) {
 			if cur.Friends[index].Id == userId {
@@ -101,11 +95,11 @@ func (cur Profile) ConnectToFriend(userId int) {
 	}
 }
 
-func (cur Profile) RunServer(address string) {
+func (cur *Profile) RunServer(address string) {
 	go cur.server(address)
 }
 
-func (cur Profile) WriteBytes(userId, lenIn int) {
+func (cur *Profile) WriteBytes(userId, lenIn int) {
 	var con net.Conn
 	if _, ok := cur.connections.Load(userId); !ok {
 		log.Println("Not connected to:", userId)
@@ -113,18 +107,18 @@ func (cur Profile) WriteBytes(userId, lenIn int) {
 	}
 	value, _ := cur.connections.Load(userId)
 	con = value.(net.Conn)
-	runtime.KeepAlive(DataStrInput.Io)
+	runtime.KeepAlive(cur.DataStrInput.Io)
 	log.Println("writing to:", con.RemoteAddr())
 
-	log.Println("input:", DataStrInput.Io)
-	println("input str:", string(DataStrInput.Io))
+	log.Println("input:", cur.DataStrInput.Io)
+	println("input str:", string(cur.DataStrInput.Io))
 
 	switch err {
 	case nil:
 		bs := make([]byte, 9)
 		binary.BigEndian.PutUint64(bs, uint64(lenIn))
 		bs[8] = '\n'
-		bytes := append(bs, DataStrInput.Io...)
+		bytes := append(bs, cur.DataStrInput.Io...)
 		println("ClientSend:", bytes, " count:", lenIn)
 
 		if _, err = con.Write(bytes); err != nil {
@@ -140,7 +134,8 @@ func (cur Profile) WriteBytes(userId, lenIn int) {
 	}
 }
 
-func (cur Profile) connect(pos int) {
+func (cur *Profile) connect(pos int) {
+	log.Println("Connecting to friend:", cur.Friends[pos].Username)
 	con, err := net.Dial("tcp", cur.Friends[pos].Address)
 	for err != nil {
 		con, err = net.Dial("tcp", cur.Friends[pos].Address)
@@ -163,10 +158,10 @@ func (cur Profile) connect(pos int) {
 	}
 
 	println("connected to target", targetId)
-	go handleConnection(targetId, con)
+	go cur.handleConnection(targetId, con)
 }
 
-func (cur Profile) server(address string) {
+func (cur *Profile) server(address string) {
 	ln, err := net.Listen("tcp", address)
 	ErrHandler(err)
 	defer func(ln net.Listener) {
@@ -216,12 +211,12 @@ func (cur Profile) server(address string) {
 			return
 		}
 
-		go handleConnection(clientId, con)
+		go cur.handleConnection(clientId, con)
 	}
 }
 
 //Symmetrical connection for TCP between f2f
-func handleConnection(clientId int, con net.Conn) {
+func (cur *Profile) handleConnection(clientId int, con net.Conn) {
 	log.Println("handling")
 
 	defer func(con net.Conn) {
@@ -240,12 +235,12 @@ func handleConnection(clientId int, con net.Conn) {
 		ErrHandler(err)
 		count := binary.BigEndian.Uint64(state[0:8])
 		log.Println("Count:", count)
-		DataStrOutput.Io, err = clientReader.Peek(int(count))
+		cur.DataStrOutput.Io, err = clientReader.Peek(int(count))
 		ErrHandler(err)
 		_, err = clientReader.Discard(int(count))
 		switch err {
 		case nil:
-			log.Println(DataStrOutput.Io)
+			log.Println(cur.DataStrOutput.Io)
 		case io.EOF:
 			log.Println("client closed the connection by terminating the process")
 			return

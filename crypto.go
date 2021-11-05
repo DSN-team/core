@@ -52,7 +52,7 @@ func UnmarshalPublicKey(data []byte) (key ecdsa.PublicKey) {
 	return
 }
 
-func (cur Profile) encProfileKey() (data []byte) {
+func (cur *Profile) encProfileKey() (data []byte) {
 	passwordHash := sha512.Sum512_256([]byte(cur.Password))
 	iv := passwordHash[:aes.BlockSize]
 	key, err := x509.MarshalECPrivateKey(cur.PrivateKey)
@@ -61,7 +61,7 @@ func (cur Profile) encProfileKey() (data []byte) {
 	return
 }
 
-func (cur Profile) decProfileKey(encKey []byte, password string) bool {
+func (cur *Profile) decProfileKey(encKey []byte, password string) bool {
 	passwordHash := sha512.Sum512_256([]byte(password))
 	iv := passwordHash[:aes.BlockSize]
 	data := decryptCBC(encKey, iv, passwordHash[:aes.BlockSize])
@@ -74,7 +74,7 @@ func (cur Profile) decProfileKey(encKey []byte, password string) bool {
 	}
 }
 
-func (cur Profile) encryptAES(otherPublicKey *ecdsa.PublicKey, in []byte) (out []byte) {
+func (cur *Profile) encryptAES(otherPublicKey *ecdsa.PublicKey, in []byte) (out []byte) {
 	x, _ := otherPublicKey.Curve.ScalarMult(otherPublicKey.X, otherPublicKey.Y, cur.PrivateKey.D.Bytes())
 	if x == nil {
 		return nil
@@ -104,7 +104,7 @@ func (cur Profile) encryptAES(otherPublicKey *ecdsa.PublicKey, in []byte) (out [
 	return
 }
 
-func (cur Profile) decryptAES(in []byte) (out []byte) {
+func (cur *Profile) decryptAES(in []byte) (out []byte) {
 	ephLen := int(in[0])
 	ephPub := in[1 : 1+ephLen]
 	ct := in[1+ephLen:]

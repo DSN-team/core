@@ -36,7 +36,7 @@ func StartDB() {
 	createUsersTable()
 }
 
-func (cur Profile) searchUser(username string) (id int) {
+func (cur *Profile) searchUser(username string) (id int) {
 	log.Println("searching user, ", username)
 	rows, err := db.Query("SELECT Id FROM users WHERE Username = $0 limit 1", username)
 	id = -1
@@ -56,21 +56,21 @@ func (cur Profile) searchUser(username string) (id int) {
 	return
 }
 
-func (cur Profile) addUser(user User) {
+func (cur *Profile) addUser(user User) {
 	log.Println("Adding user", user.Username)
 	_, err := db.Exec("INSERT INTO users (profile_id,Username,Address,public_key,is_friend) VALUES ($0,$1,$2,$3,$5)", cur.Id, user.Username, user.Address, EncPublicKey(MarshalPublicKey(user.PublicKey)), user.IsFriend)
 	ErrHandler(err)
 }
 
-func (cur Profile) editUser(id int, user User) {
+func (cur *Profile) editUser(id int, user User) {
 	log.Println("Editing user", id)
-	_, err := db.Exec("UPDATE users SET Address = $1, public_key = $2 WHERE Id = $0", id, user.Address, user.PublicKey)
+	_, err := db.Exec("UPDATE users SET Address = $1, public_key = $2 WHERE Id = $0", id, user.Address, EncPublicKey(MarshalPublicKey(user.PublicKey)))
 	if ErrHandler(err) {
 		return
 	}
 }
 
-func (cur Profile) getFriends() []User {
+func (cur *Profile) getFriends() []User {
 	log.Println("Getting Friends")
 	rows, err := db.Query("SELECT Id, Username, Address, public_key, is_friend FROM users WHERE is_friend = 1 and profile_id = $0", cur.Id)
 	if ErrHandler(err) {
@@ -114,11 +114,21 @@ func (cur Profile) getFriends() []User {
 //	return users
 //}
 
-func addProfile(profile Profile) {
+func addProfile(profile *Profile) (id int) {
 	log.Println("Adding Profile", profile.Username)
 	privateKeyBytes := profile.encProfileKey()
 	_, err := db.Exec("INSERT INTO Profiles (Username, Address, PrivateKey) VALUES ($0,$1,$2)", profile.Username, profile.Address, string(privateKeyBytes))
 	ErrHandler(err)
+	rows, err := db.Query("SELECT last_insert_rowid()")
+
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		ErrHandler(err)
+	}(rows)
+	id = -1
+	rows.Next()
+	err = rows.Scan(&id)
+	return
 }
 
 func getProfiles() []ShowProfile {

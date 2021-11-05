@@ -11,11 +11,11 @@ type TcpStruct struct {
 	data []byte
 }
 
-func (u TcpStruct) sendData(callback func()) {
+func (u TcpStruct) sendData(profile *Profile, callback func()) {
 	bs := make([]byte, 9)
 	binary.BigEndian.PutUint64(bs, uint64(len(u.data)))
 	bs[8] = '\n'
-	bytes := append(bs, DataStrInput.Io...)
+	bytes := append(bs, profile.DataStrInput.Io...)
 	println("ClientSend:", bytes, " count:", len(u.data))
 
 	if _, err = u.con.Write(bytes); err != nil {
