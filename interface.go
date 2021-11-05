@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-var UpdateUI func(int, int)
+var UpdateUI = func(int, int) {}
 
 var Profiles []ShowProfile
 
@@ -101,11 +101,11 @@ func (cur *Profile) RunServer(address string) {
 
 func (cur *Profile) WriteBytes(userId, lenIn int) {
 	var con net.Conn
-	if _, ok := cur.connections.Load(userId); !ok {
+	if _, ok := cur.Connections.Load(userId); !ok {
 		log.Println("Not connected to:", userId)
 		return
 	}
-	value, _ := cur.connections.Load(userId)
+	value, _ := cur.Connections.Load(userId)
 	con = value.(net.Conn)
 	runtime.KeepAlive(cur.DataStrInput.Io)
 	log.Println("writing to:", con.RemoteAddr())
@@ -118,7 +118,7 @@ func (cur *Profile) WriteBytes(userId, lenIn int) {
 		bs := make([]byte, 9)
 		binary.BigEndian.PutUint64(bs, uint64(lenIn))
 		bs[8] = '\n'
-		bytes := append(bs, cur.DataStrInput.Io...)
+		bytes := append(bs, cur.DataStrInput.Io[0:lenIn]...)
 		println("ClientSend:", bytes, " count:", lenIn)
 
 		if _, err = con.Write(bytes); err != nil {
@@ -148,10 +148,9 @@ func (cur *Profile) connect(pos int) {
 	ErrHandler(err)
 
 	targetId := cur.Friends[pos].Id
-
-	if _, ok := cur.connections.Load(targetId); !ok {
+	if _, ok := cur.Connections.Load(targetId); !ok {
 		log.Println("connection not found adding...")
-		cur.connections.Store(targetId, con)
+		cur.Connections.Store(targetId, con)
 	} else {
 		log.Println("connection already connected")
 		return
@@ -203,9 +202,9 @@ func (cur *Profile) server(address string) {
 
 		log.Println("connected:", clientId, clientPublicKeyString)
 
-		if _, ok := cur.connections.Load(clientId); !ok {
+		if _, ok := cur.Connections.Load(clientId); !ok {
 			log.Println("connection not found adding...")
-			cur.connections.Store(clientId, con)
+			cur.Connections.Store(clientId, con)
 		} else {
 			log.Println("connection already connected")
 			return
@@ -230,6 +229,7 @@ func (cur *Profile) handleConnection(clientId int, con net.Conn) {
 		// Waiting for the client request
 		log.Println("reading")
 		state, err := clientReader.Peek(9)
+		log.Println("peek done")
 		ErrHandler(err)
 		_, err = clientReader.Discard(9)
 		ErrHandler(err)

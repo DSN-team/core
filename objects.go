@@ -24,7 +24,7 @@ type Profile struct {
 	Address       string
 	PrivateKey    *ecdsa.PrivateKey
 	Friends       []User
-	connections   sync.Map
+	Connections   sync.Map
 	DataStrOutput strBuffer
 	DataStrInput  strBuffer
 }

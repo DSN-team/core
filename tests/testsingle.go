@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"github.com/DSN-team/core"
+	"github.com/DSN-team/core/tests/utils"
 	"log"
 	"time"
 )
@@ -23,24 +25,22 @@ func runProfile(nameNumber string) *core.Profile {
 	singleProfile.RunServer("127.0.0.1:2" + nameNumber)
 	return singleProfile
 }
+func singleConnection(from, to *core.Profile) {
+	from.AddFriend(to.Username, to.Address, to.GetProfilePublicKey())
+	from.LoadFriends()
+	from.ConnectToFriends()
+	from.DataStrInput.Io = make([]byte, 128)
+	from.DataStrOutput.Io = make([]byte, 128)
+}
 
 func main() {
 	core.StartDB()
 	core.LoadProfiles()
 	profile0 := runProfile("0")
 	profile1 := runProfile("1")
-
-	profile0.AddFriend(profile1.Username, profile1.Address, profile1.GetProfilePublicKey())
-	log.Println("friends count: ", profile0.LoadFriends())
-	profile1.AddFriend(profile0.Username, profile0.Address, profile0.GetProfilePublicKey())
-	profile1.LoadFriends()
-	go profile0.ConnectToFriends()
-	go profile1.ConnectToFriends()
-	profile0.DataStrInput.Io = make([]byte, 10)
-	profile1.DataStrInput.Io = make([]byte, 10)
-	profile0.DataStrOutput.Io = make([]byte, 10)
-	profile1.DataStrOutput.Io = make([]byte, 10)
-	delayedCall(profile0, profile1)
+	go singleConnection(profile0, profile1)
+	go singleConnection(profile1, profile0)
+	delayedCall(profile0, profile1, "test")
 
 	//Hold main thread
 	for {
@@ -48,14 +48,16 @@ func main() {
 	}
 }
 
-func delayedCall(from, to *core.Profile) {
+func delayedCall(from, to *core.Profile, msg string) {
 	go func() {
 		time.Sleep(450 * time.Millisecond)
-		for i := 0; i < 10; i++ {
-			from.DataStrInput.Io[i] = 10
+		fmt.Println(utils.ConnectionsToString(from))
+		for i := 0; i < len(msg); i++ {
+			from.DataStrInput.Io[i] = msg[i]
 		}
-		from.WriteBytes(to.Id, 10)
+		from.WriteBytes(from.Friends[0].Id, len(msg))
 		time.Sleep(400 * time.Millisecond)
 		log.Println("got it:", to.DataStrOutput.Io)
+		log.Println("got it as string:", string(to.DataStrOutput.Io))
 	}()
 }
