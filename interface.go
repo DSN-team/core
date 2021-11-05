@@ -107,7 +107,7 @@ func (cur *Profile) RunServer(address string) {
 }
 func BuildRequest(requestType byte, size uint64, data []byte) (output []byte) {
 	request := make([]byte, 0)
-	utils.SetBytes(&request, []byte{requestType})
+	utils.SetByte(&request, requestType)
 	utils.SetUint64(&request, size)
 	utils.SetBytes(&request, data)
 	return request
@@ -259,25 +259,22 @@ const (
 )
 
 func (cur *Profile) dataHandler(clientId int, clientReader *bufio.Reader) {
-	for {
-		// Waiting for the client request
-		count := utils.GetUint64Reader(clientReader)
-		log.Println("Count:", count)
-		cur.DataStrOutput.Io, err = utils.GetBytes(clientReader, count)
-		switch err {
-		case nil:
-			log.Println(cur.DataStrOutput.Io)
-		case io.EOF:
-			log.Println("client closed the connection by terminating the process")
-			return
-		default:
-			log.Printf("error: %v\n", err)
-			return
-		}
-		log.Println("updating callback")
-		//updateCall(int(count), clientId)
-		UpdateUI(int(count), clientId)
+	// Waiting for the client request
+	count := utils.GetUint64Reader(clientReader)
+	log.Println("Count:", count)
+	cur.DataStrOutput.Io, err = utils.GetBytes(clientReader, count)
+	switch err {
+	case nil:
+		log.Println(cur.DataStrOutput.Io)
+	case io.EOF:
+		log.Println("client closed the connection by terminating the process")
+		return
+	default:
+		log.Printf("error: %v\n", err)
+		return
 	}
+	log.Println("updating callback")
+	UpdateUI(int(count), clientId)
 }
 func (cur *Profile) networkHandler(_ int, clientReader *bufio.Reader) {
 	//Request size
@@ -295,19 +292,20 @@ func (cur *Profile) handleRequest(clientId int, con net.Conn) {
 		ErrHandler(err)
 	}(con)
 	clientReader := bufio.NewReader(con)
-	requestType := utils.GetByte(clientReader)
-	fmt.Println("Request type:", requestType)
-	switch requestType {
-	case RequestData:
-		{
-			cur.dataHandler(clientId, clientReader)
-			break
-		}
-	case RequestNetwork:
-		{
-			cur.networkHandler(clientId, clientReader)
-			break
+	for {
+		requestType := utils.GetByte(clientReader)
+		fmt.Println("Request type:", requestType)
+		switch requestType {
+		case RequestData:
+			{
+				cur.dataHandler(clientId, clientReader)
+				break
+			}
+		case RequestNetwork:
+			{
+				cur.networkHandler(clientId, clientReader)
+				break
+			}
 		}
 	}
-
 }

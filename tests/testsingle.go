@@ -29,19 +29,21 @@ func main() {
 }
 
 func delayedCall(from, to *core.Profile, msg string) {
-	go func() {
-		time.Sleep(250 * time.Millisecond)
-		fmt.Println(utils.ConnectionsToString(from))
-		for i := 0; i < len(msg); i++ {
-			from.DataStrInput.Io[i] = msg[i]
-		}
-		core.UpdateUI = func(i int, client int) {
-			log.Print("client:", client, "\n")
-			log.Print("got it:", to.DataStrOutput.Io)
-			log.Println("got it as string:", string(to.DataStrOutput.Io))
-		}
-		from.WriteRequest(from.Friends[0].Id,
-			core.BuildRequest(core.RequestData, uint64(len(msg)), from.DataStrInput.Io[0:len(msg)]))
-
-	}()
+	for i := 0; i < 2; i++ {
+		go func() {
+			time.Sleep(250 * time.Millisecond)
+			fmt.Println(utils.ConnectionsToString(from))
+			for i := 0; i < len(msg); i++ {
+				from.DataStrInput.Io[i] = msg[i]
+			}
+			core.UpdateUI = func(i int, client int) {
+				log.Print("client:", client, "\n")
+				log.Print("got it:", to.DataStrOutput.Io)
+				log.Println("got it as string:", string(to.DataStrOutput.Io))
+			}
+			request := core.BuildRequest(core.RequestData, uint64(len(msg)), from.DataStrInput.Io[0:len(msg)])
+			fmt.Println("REQUST:", request)
+			from.WriteRequest(from.Friends[0].Id, request)
+		}()
+	}
 }
