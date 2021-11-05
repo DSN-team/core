@@ -42,7 +42,7 @@ func delayedCall(from, to *core.Profile, msg string) {
 				log.Println("got it as string:", string(to.DataStrOutput.Io))
 			}
 			request := core.BuildRequest(core.RequestData, uint64(len(msg)), from.DataStrInput.Io[0:len(msg)])
-			fmt.Println("REQUST:", request)
+			fmt.Println("REQUEST:", request)
 			from.WriteRequest(from.Friends[0].Id, request)
 		}()
 	}
