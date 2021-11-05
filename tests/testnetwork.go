@@ -1,11 +1,6 @@
 package main
 
-import (
-	"github.com/DSN-team/core"
-	"os"
-	"strconv"
-)
-
+/*
 func main() {
 	args := os.Args
 	username := "Node:" + args[1]
@@ -68,3 +63,5 @@ func main() {
 	}
 
 }
+
+*/

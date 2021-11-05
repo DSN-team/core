@@ -1,6 +1,9 @@
 package core
 
-import "crypto/ecdsa"
+import (
+	"crypto/ecdsa"
+	"sync"
+)
 
 type User struct {
 	Id        int
@@ -11,11 +14,13 @@ type User struct {
 }
 
 type Profile struct {
-	Id         int
-	Username   string
-	Password   string
-	Address    string
-	PrivateKey *ecdsa.PrivateKey
+	Id          int
+	Username    string
+	Password    string
+	Address     string
+	PrivateKey  *ecdsa.PrivateKey
+	Friends     []User
+	connections sync.Map
 }
 
 type ShowProfile struct {

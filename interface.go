@@ -8,7 +8,6 @@ import (
 	"log"
 	"net"
 	"runtime"
-	"sync"
 	"time"
 )
 
@@ -20,35 +19,31 @@ type strBuffer struct {
 
 var DataStrOutput = &strBuffer{}
 var DataStrInput = &strBuffer{}
-var connections = &sync.Map{}
-
-var SelectedProfile Profile
 var Profiles []ShowProfile
-var Friends []User
 
 func testAES() {
 
 }
 
-func Register(username, password string) bool {
+func (cur Profile) Register(username, password string) bool {
 	key := genProfileKey()
 	if key == nil {
 		return false
 	}
-	SelectedProfile = Profile{Username: username, Password: password, PrivateKey: key}
-	log.Println(SelectedProfile)
-	addProfile(SelectedProfile)
+	cur = Profile{Username: username, Password: password, PrivateKey: key}
+	log.Println(cur)
+	addProfile(cur)
 	return true
 }
 
-func Login(password string, pos int) (result bool) {
+func (cur Profile) Login(password string, pos int) (result bool) {
 	var privateKeyEncBytes []byte
-	SelectedProfile.Id = Profiles[pos].Id
-	SelectedProfile.Username, SelectedProfile.Address, privateKeyEncBytes = getProfileByID(Profiles[pos].Id)
+	cur.Id = Profiles[pos].Id
+	cur.Username, cur.Address, privateKeyEncBytes = getProfileByID(Profiles[pos].Id)
 	if privateKeyEncBytes == nil {
 		return false
 	}
-	result = decProfileKey(privateKeyEncBytes, password)
+	result = cur.decProfileKey(privateKeyEncBytes, password)
 	fmt.Println("Login status:", result)
 	return
 }
@@ -68,50 +63,50 @@ func LoadProfiles() int {
 	return len(Profiles)
 }
 
-func GetProfilePublicKey() string {
-	return EncPublicKey(MarshalPublicKey(&SelectedProfile.PrivateKey.PublicKey))
+func (cur Profile) GetProfilePublicKey() string {
+	return EncPublicKey(MarshalPublicKey(&cur.PrivateKey.PublicKey))
 }
 
-func AddFriend(address, publicKey string) {
+func (cur Profile) AddFriend(address, publicKey string) {
 	decryptedPublicKey := UnmarshalPublicKey(DecPublicKey(publicKey))
 	user := User{Address: address, PublicKey: &decryptedPublicKey, IsFriend: true}
-	addUser(user)
+	cur.addUser(user)
 }
 
-func LoadFriends() int {
+func (cur Profile) LoadFriends() int {
 	println("Loading Friends from db")
-	Friends = getFriends()
-	return len(Friends)
+	cur.Friends = cur.getFriends()
+	return len(cur.Friends)
 }
 
-func ConnectToFriends() {
-	for i := 0; i < len(Friends); i++ {
-		go connect(i)
+func (cur Profile) ConnectToFriends() {
+	for i := 0; i < len(cur.Friends); i++ {
+		go cur.connect(i)
 	}
 }
 
-func ConnectToFriend(userId int) {
-	for i := 0; i < len(Friends); i++ {
+func (cur Profile) ConnectToFriend(userId int) {
+	for i := 0; i < len(cur.Friends); i++ {
 		go func(index int) {
-			if Friends[index].Id == userId {
-				connect(index)
+			if cur.Friends[index].Id == userId {
+				cur.connect(index)
 				return
 			}
 		}(i)
 	}
 }
 
-func RunServer(address string) {
-	go server(address)
+func (cur Profile) RunServer(address string) {
+	go cur.server(address)
 }
 
-func WriteBytes(userId, lenIn int) {
+func (cur Profile) WriteBytes(userId, lenIn int) {
 	var con net.Conn
-	if _, ok := connections.Load(userId); !ok {
+	if _, ok := cur.connections.Load(userId); !ok {
 		log.Println("Not connected to:", userId)
 		return
 	}
-	value, _ := connections.Load(userId)
+	value, _ := cur.connections.Load(userId)
 	con = value.(net.Conn)
 	runtime.KeepAlive(DataStrInput.Io)
 	log.Println("writing to:", con.RemoteAddr())
@@ -140,23 +135,23 @@ func WriteBytes(userId, lenIn int) {
 	}
 }
 
-func connect(pos int) {
-	con, err := net.Dial("tcp", Friends[pos].Address)
+func (cur Profile) connect(pos int) {
+	con, err := net.Dial("tcp", cur.Friends[pos].Address)
 	for err != nil {
-		con, err = net.Dial("tcp", Friends[pos].Address)
+		con, err = net.Dial("tcp", cur.Friends[pos].Address)
 		ErrHandler(err)
 		time.Sleep(1 * time.Second)
 	}
 
-	publicKey := MarshalPublicKey(&SelectedProfile.PrivateKey.PublicKey)
+	publicKey := MarshalPublicKey(&cur.PrivateKey.PublicKey)
 	_, err = con.Write(publicKey)
 	ErrHandler(err)
 
-	targetId := Friends[pos].Id
+	targetId := cur.Friends[pos].Id
 
-	if _, ok := connections.Load(targetId); !ok {
+	if _, ok := cur.connections.Load(targetId); !ok {
 		log.Println("connection not found adding...")
-		connections.Store(targetId, con)
+		cur.connections.Store(targetId, con)
 	} else {
 		log.Println("connection already connected")
 		return
@@ -166,7 +161,7 @@ func connect(pos int) {
 	go handleConnection(targetId, con)
 }
 
-func server(address string) {
+func (cur Profile) server(address string) {
 	ln, err := net.Listen("tcp", address)
 	ErrHandler(err)
 	defer func(ln net.Listener) {
@@ -179,7 +174,7 @@ func server(address string) {
 		ErrHandler(err)
 		println("accepted server client")
 
-		profilePublicKey := MarshalPublicKey(&SelectedProfile.PrivateKey.PublicKey)
+		profilePublicKey := MarshalPublicKey(&cur.PrivateKey.PublicKey)
 
 		clientReader := bufio.NewReader(con)
 		publicKeyLen := len(profilePublicKey)
@@ -195,7 +190,7 @@ func server(address string) {
 
 		clientPublicKeyString := EncPublicKey(clientKey)
 		profilePublicKeyString := EncPublicKey(profilePublicKey)
-		log.Println("SelectedProfile public key:", profilePublicKeyString)
+		log.Println("Current profile public key:", profilePublicKeyString)
 		log.Println("client public key:", clientPublicKeyString)
 
 		if profilePublicKeyString != clientPublicKeyString {
@@ -208,9 +203,9 @@ func server(address string) {
 
 		log.Println("connected:", clientId, clientPublicKeyString)
 
-		if _, ok := connections.Load(clientId); !ok {
+		if _, ok := cur.connections.Load(clientId); !ok {
 			log.Println("connection not found adding...")
-			connections.Store(clientId, con)
+			cur.connections.Store(clientId, con)
 		} else {
 			log.Println("connection already connected")
 			return

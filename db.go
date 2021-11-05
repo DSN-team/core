@@ -36,15 +36,15 @@ func StartDB() {
 	createUsersTable()
 }
 
-func addUser(user User) {
+func (cur Profile) addUser(user User) {
 	log.Println("Adding user", user.Username)
-	_, err := db.Exec("INSERT INTO users (profile_id,Username,Address,public_key,is_friend) VALUES ($0,$1,$2,$3,$5)", SelectedProfile.Id, user.Username, user.Address, EncPublicKey(MarshalPublicKey(user.PublicKey)), user.IsFriend)
+	_, err := db.Exec("INSERT INTO users (profile_id,Username,Address,public_key,is_friend) VALUES ($0,$1,$2,$3,$5)", cur.Id, user.Username, user.Address, EncPublicKey(MarshalPublicKey(user.PublicKey)), user.IsFriend)
 	ErrHandler(err)
 }
 
-func getFriends() []User {
+func (cur Profile) getFriends() []User {
 	log.Println("Getting Friends")
-	rows, err := db.Query("SELECT Id, Username, Address, public_key, is_friend FROM users WHERE is_friend = 1 and profile_id = $0", SelectedProfile.Id)
+	rows, err := db.Query("SELECT Id, Username, Address, public_key, is_friend FROM users WHERE is_friend = 1 and profile_id = $0", cur.Id)
 	if ErrHandler(err) {
 		return nil
 	}
@@ -87,8 +87,8 @@ func getFriends() []User {
 //}
 
 func addProfile(profile Profile) {
-	log.Println("Adding SelectedProfile", profile.Username)
-	privateKeyBytes := encProfileKey()
+	log.Println("Adding Profile", profile.Username)
+	privateKeyBytes := profile.encProfileKey()
 	_, err := db.Exec("INSERT INTO Profiles (Username, Address, PrivateKey) VALUES ($0,$1,$2)", profile.Username, profile.Address, string(privateKeyBytes))
 	ErrHandler(err)
 }
@@ -119,7 +119,7 @@ func getProfiles() []ShowProfile {
 }
 
 func getProfileByID(id int) (string, string, []byte) {
-	log.Println("Getting SelectedProfile by ID", id)
+	log.Println("Getting Profile by ID", id)
 	rows, err := db.Query("SELECT Username, Address, PrivateKey FROM Profiles WHERE Id=$0", id)
 	if ErrHandler(err) {
 		return "", "", nil
@@ -143,7 +143,7 @@ func getProfileByID(id int) (string, string, []byte) {
 }
 
 func getUserByPublicKey(publicKey string) int {
-	log.Println("Getting SelectedProfile by key")
+	log.Println("Getting Profile by key")
 	rows, err := db.Query("SELECT Id FROM users WHERE public_key=$0", publicKey)
 	if ErrHandler(err) {
 		return 0
