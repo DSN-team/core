@@ -1,67 +1,38 @@
 package main
 
-/*
+import (
+	"github.com/DSN-team/core"
+	"github.com/DSN-team/core/tests/utils"
+	"strconv"
+	"time"
+)
+
+func connectNodes(profiles []*core.Profile, i, j int) {
+	utils.CreateNetwork(profiles[i], profiles[j])
+	utils.CreateNetwork(profiles[j], profiles[i])
+}
 func main() {
-	args := os.Args
-	username := "Node:" + args[1]
-	password := "Pass:" + args[1]
-	node := args[1]
-	println("node:" + node)
-	println("username:" + username)
-	println("password:" + password)
+	time.Sleep(250 * time.Millisecond)
 	core.StartDB()
 	core.LoadProfiles()
-	pos := core.UsernamePos(username)
-	if pos == -1 {
-		core.Register(username, password) //already logged in after register
-	} else {
-		core.Login(password, pos)
-		core.LoadFriends()
+	profiles := make([]*core.Profile, 8)
+	for i := 0; i < len(profiles); i++ {
+		profiles[i] = utils.RunProfile(strconv.FormatInt(int64(i), 10))
 	}
-	port, _ := strconv.Atoi(node)
-	port += 25
-	switch node {
-	case "0":
-		{
-			break
-		}
-	case "1":
-		{
-
-			break
-		}
-	case "2":
-		{
-
-			break
-		}
-	case "3":
-		{
-
-			break
-		}
-	case "4":
-		{
-
-			break
-		}
-	case "5":
-		{
-
-			break
-		}
-	case "6":
-		{
-
-			break
-		}
-	case "7":
-		{
-
-			break
-		}
+	connectNodes(profiles, 0, 1)
+	connectNodes(profiles, 0, 2)
+	connectNodes(profiles, 0, 3)
+	connectNodes(profiles, 1, 6)
+	connectNodes(profiles, 6, 2)
+	connectNodes(profiles, 3, 4)
+	connectNodes(profiles, 5, 4)
+	connectNodes(profiles, 6, 7)
+	for i := 0; i < len(profiles); i++ {
+		go utils.StartConnection(profiles[i])
 	}
 
+	//Hold main thread
+	for {
+		time.Sleep(10)
+	}
 }
-
-*/

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/binary"
 	"fmt"
+	"github.com/DSN-team/core/utils"
 	"io"
 	"log"
 	"net"
@@ -72,6 +73,12 @@ func (cur *Profile) AddFriend(username, address, publicKey string) {
 	}
 }
 
+func (cur *Profile) FindFriendRequest(username string) (address, publicKey string) {
+	request := make([]byte, 8)
+	binary.BigEndian.PutUint64(request, uint64(len(username)))
+	return "", ""
+}
+
 func (cur *Profile) LoadFriends() int {
 	println("Loading Friends from db")
 	cur.Friends = cur.getFriends()
@@ -98,8 +105,14 @@ func (cur *Profile) ConnectToFriend(userId int) {
 func (cur *Profile) RunServer(address string) {
 	go cur.server(address)
 }
-
-func (cur *Profile) WriteBytes(userId, lenIn int) {
+func BuildRequest(requestType byte, size uint64, data []byte) (output []byte) {
+	request := make([]byte, 0)
+	utils.SetBytes(&request, []byte{requestType})
+	utils.SetUint64(&request, size)
+	utils.SetBytes(&request, data)
+	return request
+}
+func (cur *Profile) WriteRequest(userId int, request []byte) {
 	var con net.Conn
 	if _, ok := cur.Connections.Load(userId); !ok {
 		log.Println("Not connected to:", userId)
@@ -115,12 +128,38 @@ func (cur *Profile) WriteBytes(userId, lenIn int) {
 
 	switch err {
 	case nil:
-		bs := make([]byte, 9)
-		binary.BigEndian.PutUint64(bs, uint64(lenIn))
-		bs[8] = '\n'
-		bytes := append(bs, cur.DataStrInput.Io[0:lenIn]...)
-		println("ClientSend:", bytes, " count:", lenIn)
+		println("ClientSend:", request, " count:", len(request))
+		if _, err = con.Write(request); err != nil {
+			log.Printf("failed to send the client request: %v\n", err)
+		}
+	case io.EOF:
+		log.Println("client closed the connection")
+		return
+	default:
+		log.Printf("client error: %v\n", err)
+		return
+	}
+}
 
+//TODO Deprecated
+func (cur *Profile) WriteDataRequest(userId, lenIn int) {
+	var con net.Conn
+	if _, ok := cur.Connections.Load(userId); !ok {
+		log.Println("Not connected to:", userId)
+		return
+	}
+	value, _ := cur.Connections.Load(userId)
+	con = value.(net.Conn)
+	runtime.KeepAlive(cur.DataStrInput.Io)
+	log.Println("writing to:", con.RemoteAddr())
+
+	log.Println("input:", cur.DataStrInput.Io)
+	println("input str:", string(cur.DataStrInput.Io))
+
+	switch err {
+	case nil:
+		bytes := BuildRequest(RequestData, uint64(lenIn), cur.DataStrInput.Io[0:lenIn])
+		println("ClientSend:", bytes, " count:", lenIn)
 		if _, err = con.Write(bytes); err != nil {
 			log.Printf("failed to send the client request: %v\n", err)
 		}
@@ -157,7 +196,7 @@ func (cur *Profile) connect(pos int) {
 	}
 
 	println("connected to target", targetId)
-	go cur.handleConnection(targetId, con)
+	go cur.handleRequest(targetId, con)
 }
 
 func (cur *Profile) server(address string) {
@@ -210,34 +249,21 @@ func (cur *Profile) server(address string) {
 			return
 		}
 
-		go cur.handleConnection(clientId, con)
+		go cur.handleRequest(clientId, con)
 	}
 }
 
-//Symmetrical connection for TCP between f2f
-func (cur *Profile) handleConnection(clientId int, con net.Conn) {
-	log.Println("handling")
+const (
+	RequestData    = byte(0)
+	RequestNetwork = byte(1)
+)
 
-	defer func(con net.Conn) {
-		err := con.Close()
-		ErrHandler(err)
-	}(con)
-
-	clientReader := bufio.NewReader(con)
-
+func (cur *Profile) dataHandler(clientId int, clientReader *bufio.Reader) {
 	for {
 		// Waiting for the client request
-		log.Println("reading")
-		state, err := clientReader.Peek(9)
-		log.Println("peek done")
-		ErrHandler(err)
-		_, err = clientReader.Discard(9)
-		ErrHandler(err)
-		count := binary.BigEndian.Uint64(state[0:8])
+		count := utils.GetUint64Reader(clientReader)
 		log.Println("Count:", count)
-		cur.DataStrOutput.Io, err = clientReader.Peek(int(count))
-		ErrHandler(err)
-		_, err = clientReader.Discard(int(count))
+		cur.DataStrOutput.Io, err = utils.GetBytes(clientReader, count)
 		switch err {
 		case nil:
 			log.Println(cur.DataStrOutput.Io)
@@ -248,9 +274,40 @@ func (cur *Profile) handleConnection(clientId int, con net.Conn) {
 			log.Printf("error: %v\n", err)
 			return
 		}
-
 		log.Println("updating callback")
 		//updateCall(int(count), clientId)
 		UpdateUI(int(count), clientId)
 	}
+}
+func (cur *Profile) networkHandler(_ int, clientReader *bufio.Reader) {
+	//Request size
+	count := utils.GetUint64Reader(clientReader)
+	userNameSize := utils.GetUint16Reader(clientReader)
+	username, _ := utils.GetBytes(clientReader, uint64(userNameSize))
+	fmt.Println("count:", count, " userNameSize:", userNameSize, " username:", username)
+}
+
+//Symmetrical connection for TCP between f2f
+func (cur *Profile) handleRequest(clientId int, con net.Conn) {
+	log.Println("handling")
+	defer func(con net.Conn) {
+		err := con.Close()
+		ErrHandler(err)
+	}(con)
+	clientReader := bufio.NewReader(con)
+	requestType := utils.GetByte(clientReader)
+	fmt.Println("Request type:", requestType)
+	switch requestType {
+	case RequestData:
+		{
+			cur.dataHandler(clientId, clientReader)
+			break
+		}
+	case RequestNetwork:
+		{
+			cur.networkHandler(clientId, clientReader)
+			break
+		}
+	}
+
 }
