@@ -24,6 +24,12 @@ func GetUint16Reader(clientReader *bufio.Reader) uint16 {
 	return count
 }
 
+func GetUint8Reader(clientReader *bufio.Reader) uint8 {
+	state, _ := GetBytes(clientReader, 1)
+	count := uint8(state[0])
+	return count
+}
+
 func GetBytes(reader *bufio.Reader, size uint64) ([]byte, error) {
 	state, err := reader.Peek(int(size))
 	if err != nil {
