@@ -56,10 +56,20 @@ func (cur *Profile) searchUser(username string) (id int) {
 	return
 }
 
-func (cur *Profile) addUser(user User) {
+func (cur *Profile) addUser(user User) (id int) {
 	log.Println("Adding user", user.Username)
 	_, err := db.Exec("INSERT INTO users (profile_id,Username,Address,public_key,is_friend) VALUES ($0,$1,$2,$3,$5)", cur.Id, user.Username, user.Address, EncPublicKey(MarshalPublicKey(user.PublicKey)), user.IsFriend)
 	ErrHandler(err)
+	rows, err := db.Query("SELECT Id FROM users ORDER BY column DESC LIMIT 1")
+
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		ErrHandler(err)
+	}(rows)
+	id = -1
+	rows.Next()
+	err = rows.Scan(&id)
+	return
 }
 
 func (cur *Profile) editUser(id int, user User) {
@@ -95,31 +105,12 @@ func (cur *Profile) getFriends() []User {
 	return users
 }
 
-//func getUsers() []User {
-//	response, err := db.Query("SELECT * FROM users")
-//	if ErrHandler(err) {
-//		return nil
-//	}
-//	var users []User
-//	for response.Next() {
-//		var user User
-//		var PublicKey string
-//		err = response.Scan(&user.Username, &user.Address, &PublicKey, &user.IsFriend)
-//		if ErrHandler(err) {
-//			continue
-//		}
-//		user.PublicKey = DecPublicKey(PublicKey)
-//		users = append(users, user)
-//	}
-//	return users
-//}
-
 func addProfile(profile *Profile) (id int) {
 	log.Println("Adding Profile", profile.Username)
 	privateKeyBytes := profile.encProfileKey()
 	_, err := db.Exec("INSERT INTO Profiles (Username, Address, PrivateKey) VALUES ($0,$1,$2)", profile.Username, profile.Address, string(privateKeyBytes))
 	ErrHandler(err)
-	rows, err := db.Query("SELECT last_insert_rowid()")
+	rows, err := db.Query("SELECT Id FROM Profiles ORDER BY column DESC LIMIT 1")
 
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
