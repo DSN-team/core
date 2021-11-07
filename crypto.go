@@ -12,6 +12,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"log"
+	"math/big"
 )
 
 var Curve = elliptic.P256
@@ -203,4 +204,14 @@ func addPadding(data []byte) []byte {
 	padding[l-1] = byte(l)
 	data = append(data, padding...)
 	return data
+}
+
+func (cur *Profile) signData(data []byte) (*big.Int, *big.Int) {
+	r, s, err := ecdsa.Sign(rand.Reader, cur.PrivateKey, data)
+	ErrHandler(err)
+	return r, s
+}
+
+func (cur *Profile) verifyData(data []byte, r, s big.Int) (result bool) {
+	return ecdsa.Verify(&cur.PrivateKey.PublicKey, data, &r, &s)
 }
