@@ -185,6 +185,7 @@ func removePadding(data []byte) []byte {
 	}
 	l := int(data[len(data)-1])
 	log.Println("len of data:", l)
+	log.Println("real len of data:", len(data))
 	return data[:len(data)-l]
 }
 

@@ -31,10 +31,7 @@ func (cur *Profile) Login(password string, pos int) (result bool) {
 	var privateKeyEncBytes []byte
 	cur.Id = Profiles[pos].Id
 	cur.Username, cur.Address, privateKeyEncBytes = getProfileByID(Profiles[pos].Id)
-	//if address != "" {
-	//	cur.Address = address
-	//	TODO Here need to update DB
-	//}
+	fmt.Println("privateKeyEncBytes: ", privateKeyEncBytes)
 	if privateKeyEncBytes == nil {
 		return false
 	}
