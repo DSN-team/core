@@ -3,7 +3,15 @@ package utils
 import (
 	"github.com/DSN-team/core"
 	"strconv"
+	"time"
 )
+
+func InitTest() {
+	//Sleep between retrying
+	time.Sleep(250 * time.Millisecond)
+	core.StartDB()
+	core.LoadProfiles()
+}
 
 func RunProfile(nameNumber string) *core.Profile {
 	username := "Node:" + nameNumber
@@ -24,24 +32,24 @@ func RunProfile(nameNumber string) *core.Profile {
 }
 
 func CreateNetwork(from, to *core.Profile) {
-	from.AddFriend(to.Username, to.Address, to.GetProfilePublicKey())
+	from.AddFriend(to.thisUser.Username, to.thisUser.Address, to.GetProfilePublicKey())
 }
 
 func StartConnection(from *core.Profile) {
-	if from.DataStrInput.Io == nil {
-		from.DataStrInput.Io = make([]byte, 128)
+	if from.DataStrInput == nil {
+		from.DataStrInput = make([]byte, 128)
 	}
-	if from.DataStrOutput.Io == nil {
-		from.DataStrOutput.Io = make([]byte, 128)
+	if from.DataStrOutput == nil {
+		from.DataStrOutput = make([]byte, 128)
 	}
 	from.LoadFriends()
 	from.ConnectToFriends()
 }
 
 func ProfileToString(user *core.Profile) (output string) {
-	output += "Username:" + user.Username
+	output += "Username:" + user.thisUser.Username
 	output += "Password:" + user.Password
-	output += "Address:" + user.Address
+	output += "Address:" + user.thisUser.Address
 	return output
 }
 func ConnectionsToString(profile *core.Profile) (output string) {

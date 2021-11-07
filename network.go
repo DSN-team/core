@@ -106,7 +106,7 @@ func (cur *Profile) RunServer(address string) {
 	go cur.server(address)
 }
 
-func BuildRequest(requestType byte, size uint64, data []byte) (output []byte) {
+func BuildDataRequest(requestType byte, size uint64, data []byte) (output []byte) {
 	request := make([]byte, 0)
 	utils.SetByte(&request, requestType)
 	utils.SetUint64(&request, size)
@@ -122,11 +122,11 @@ func (cur *Profile) WriteRequest(userId int, request []byte) {
 	}
 	value, _ := cur.Connections.Load(userId)
 	con = value.(net.Conn)
-	runtime.KeepAlive(cur.DataStrInput.Io)
+	runtime.KeepAlive(cur.DataStrInput)
 	log.Println("writing to:", con.RemoteAddr())
 
-	log.Println("input:", cur.DataStrInput.Io)
-	println("input str:", string(cur.DataStrInput.Io))
+	log.Println("input:", cur.DataStrInput)
+	println("input str:", string(cur.DataStrInput))
 
 	switch err {
 	case nil:
@@ -167,7 +167,8 @@ func (cur *Profile) handleRequest(clientId int, con net.Conn) {
 			}
 		case RequestDataVerification:
 			{
-
+				cur.verificationHandler(clientId, clientReader)
+				break
 			}
 		}
 	}
@@ -177,10 +178,11 @@ func (cur *Profile) dataHandler(clientId int, clientReader *bufio.Reader) {
 	// Waiting for the client request
 	count := utils.GetUint64Reader(clientReader)
 	log.Println("Count:", count)
-	cur.DataStrOutput.Io, err = utils.GetBytes(clientReader, count)
+	cur.DataStrOutput, err = utils.GetBytes(clientReader, count)
+	cur.DataStrOutput = append([]byte(RequestData), cur.DataStrOutput...)
 	switch err {
 	case nil:
-		log.Println(cur.DataStrOutput.Io)
+		log.Println(cur.DataStrOutput)
 	case io.EOF:
 		log.Println("client closed the connection by terminating the process")
 		return
@@ -193,27 +195,35 @@ func (cur *Profile) dataHandler(clientId int, clientReader *bufio.Reader) {
 }
 
 func (cur *Profile) verificationHandler(clientId int, clientReader *bufio.Reader) {
-	Ping := utils.GetUint16Reader(clientReader)
-	for i := 0; i < len(cur.Friends); i++ {
-		if cur.Friends[i].Id == clientId {
-			cur.Friends[i].Ping = int(Ping)
-		}
-	}
+	cur.Friends[cur.getFriendNumber(clientId)].Ping = int(utils.GetUint16Reader(clientReader))
 }
 
-func (cur *Profile) networkHandler(_ int, clientReader *bufio.Reader) {
-	//Request size
-	count := utils.GetUint64Reader(clientReader)
+func (cur *Profile) networkHandler(clientId int, clientReader *bufio.Reader) {
+	//Username size
 	userNameSize := utils.GetUint16Reader(clientReader)
-	username, _ := utils.GetBytes(clientReader, uint64(userNameSize))
+	fromUserNameSize := utils.GetUint16Reader(clientReader)
 	requestDepth := utils.GetUint8Reader(clientReader)
-	fmt.Println("count:", count, " userNameSize:", userNameSize, " username:", username,
-		"Depth:", requestDepth)
-	requestDepth--
-	//resend request if depth > 0
-	//Required: Friends.ping && Friends.is_online
-	if requestDepth > 0 {
+	requestDegree := utils.GetUint8Reader(clientReader)
+	backTraceSize := utils.GetUint8Reader(clientReader)
 
-		cur.FindFriendRequestSecondary(string(username), int(requestDepth), 2)
+	encrypted, _ := utils.GetBytes(clientReader, y)
+	username, _ := utils.GetBytes(clientReader, uint64(userNameSize))
+	fromUsername, _ := utils.GetBytes(clientReader, uint64(fromUserNameSize))
+	profilePublicKey, _ := utils.GetBytes(clientReader, uint64(backTraceSize))
+	backTrace, _ := utils.GetBytes(clientReader, uint64(backTraceSize))
+	requestDepth--
+	//Required: Friends.ping && Friends.is_online
+	fmt.Println("UserNameSize:", userNameSize, " username:", username,
+		" Depth:", requestDepth, " BackTrace:", backTrace)
+	if cur.thisUser.Username == string(username) {
+		fmt.Println("Friend request done, request from:", string(fromUsername), "Accept?")
+		cur.DataStrOutput = append([]byte(RequestNetwork), fromUsername...)
+		cur.DataStrOutput = append(cur.DataStrOutput, backTrace...)
+
+		UpdateUI(int(userNameSize), clientId)
+		return
+	}
+	if requestDepth > 0 {
+		cur.WriteFindFriendRequestSecondary(string(username), int(requestDepth), int(requestDegree), clientId)
 	}
 }

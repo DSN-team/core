@@ -59,6 +59,20 @@ func SetUint64(request *[]byte, data uint64) {
 	binary.BigEndian.PutUint64(bs, data)
 	*request = append(*request, bs...)
 }
+func SetUint32(request *[]byte, data uint32) {
+	bs := make([]byte, 4)
+	binary.BigEndian.PutUint32(bs, data)
+	*request = append(*request, bs...)
+}
+func SetUint16(request *[]byte, data uint16) {
+	bs := make([]byte, 2)
+	binary.BigEndian.PutUint16(bs, data)
+	*request = append(*request, bs...)
+}
+func SetUint8(request *[]byte, data uint8) {
+	*request = append(*request, data)
+}
+
 func SetBytes(request *[]byte, data []byte) {
 	*request = append(*request, data...)
 }

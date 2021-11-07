@@ -5,10 +5,6 @@ import (
 	"sync"
 )
 
-type strBuffer struct {
-	Io []byte
-}
-
 type User struct {
 	Id        int
 	Username  string
@@ -20,21 +16,15 @@ type User struct {
 }
 
 type Profile struct {
-	Password string
-	thisUser User
-	//Deprecated: Use
-	Id int
-	//Deprecated: Use
-	Username string
-	//Deprecated: Use
-	Address    string
+	Password   string
+	thisUser   User
 	PrivateKey *ecdsa.PrivateKey
 	//From ID to index
 	FriendsIDXs   sync.Map
-	Friends       []User
 	Connections   sync.Map
-	DataStrOutput strBuffer
-	DataStrInput  strBuffer
+	Friends       []User
+	DataStrOutput []byte
+	DataStrInput  []byte
 }
 
 type ShowProfile struct {

@@ -58,7 +58,7 @@ func (cur *Profile) searchUser(username string) (id int) {
 
 func (cur *Profile) addUser(user User) (id int) {
 	log.Println("Adding user", user.Username)
-	_, err := db.Exec("INSERT INTO users (profile_id,Username,Address,public_key,is_friend) VALUES ($0,$1,$2,$3,$5)", cur.Id, user.Username, user.Address, EncPublicKey(MarshalPublicKey(user.PublicKey)), user.IsFriend)
+	_, err := db.Exec("INSERT INTO users (profile_id,Username,Address,public_key,is_friend) VALUES ($0,$1,$2,$3,$5)", cur.thisUser.Id, user.Username, user.Address, EncPublicKey(MarshalPublicKey(user.PublicKey)), user.IsFriend)
 	ErrHandler(err)
 	rows, err := db.Query("SELECT Id FROM users ORDER BY column DESC LIMIT 1")
 
@@ -82,7 +82,7 @@ func (cur *Profile) editUser(id int, user User) {
 
 func (cur *Profile) getFriends() []User {
 	log.Println("Getting Friends")
-	rows, err := db.Query("SELECT Id, Username, Address, public_key, is_friend FROM users WHERE is_friend = 1 and profile_id = $0", cur.Id)
+	rows, err := db.Query("SELECT Id, Username, Address, public_key, is_friend FROM users WHERE is_friend = 1 and profile_id = $0", cur.thisUser.Id)
 	if ErrHandler(err) {
 		return nil
 	}
@@ -91,6 +91,7 @@ func (cur *Profile) getFriends() []User {
 		ErrHandler(err)
 	}(rows)
 	var users []User
+	number := 0
 	for rows.Next() {
 		var user User
 		var publicKey string
@@ -101,14 +102,16 @@ func (cur *Profile) getFriends() []User {
 		decryptedPublicKey := UnmarshalPublicKey(DecPublicKey(publicKey))
 		user.PublicKey = &decryptedPublicKey
 		users = append(users, user)
+		cur.FriendsIDXs.Store(number, user.Id)
+		number++
 	}
 	return users
 }
 
 func addProfile(profile *Profile) (id int) {
-	log.Println("Adding Profile", profile.Username)
+	log.Println("Adding Profile", profile.thisUser.Username)
 	privateKeyBytes := profile.encProfileKey()
-	_, err := db.Exec("INSERT INTO Profiles (Username, Address, PrivateKey) VALUES ($0,$1,$2)", profile.Username, profile.Address, string(privateKeyBytes))
+	_, err := db.Exec("INSERT INTO Profiles (Username, Address, PrivateKey) VALUES ($0,$1,$2)", profile.thisUser.Username, profile.thisUser.Address, string(privateKeyBytes))
 	ErrHandler(err)
 	rows, err := db.Query("SELECT Id FROM Profiles ORDER BY column DESC LIMIT 1")
 

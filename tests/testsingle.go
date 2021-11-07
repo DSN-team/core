@@ -9,10 +9,7 @@ import (
 )
 
 func main() {
-	//Sleep between retrying
-	time.Sleep(250 * time.Millisecond)
-	core.StartDB()
-	core.LoadProfiles()
+	utils.InitTest()
 	profile0 := utils.RunProfile("0")
 	profile1 := utils.RunProfile("1")
 	utils.CreateNetwork(profile0, profile1)
@@ -34,14 +31,14 @@ func delayedCall(from, to *core.Profile, msg string) {
 			time.Sleep(250 * time.Millisecond)
 			fmt.Println(utils.ConnectionsToString(from))
 			for i := 0; i < len(msg); i++ {
-				from.DataStrInput.Io[i] = msg[i]
+				from.DataStrInput[i] = msg[i]
 			}
 			core.UpdateUI = func(i int, client int) {
 				log.Print("client:", client, "\n")
-				log.Print("got it:", to.DataStrOutput.Io)
-				log.Println("got it as string:", string(to.DataStrOutput.Io))
+				log.Print("got it:", to.DataStrOutput)
+				log.Println("got it as string:", string(to.DataStrOutput))
 			}
-			request := core.BuildRequest(core.RequestData, uint64(len(msg)), from.DataStrInput.Io[0:len(msg)])
+			request := core.BuildDataRequest(core.RequestData, uint64(len(msg)), from.DataStrInput[0:len(msg)])
 			fmt.Println("REQUEST:", request)
 			from.WriteRequest(from.Friends[0].Id, request)
 		}()
