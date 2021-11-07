@@ -1,7 +1,7 @@
 package core
 
 import (
-	"encoding/binary"
+	"github.com/DSN-team/core/utils"
 	"sort"
 )
 
@@ -16,14 +16,43 @@ func (cur *Profile) getFriendNumber(id int) int {
 	return output.(int)
 }
 
-func (cur *Profile) FindFriendRequest(username string) {
-	cur.FindFriendRequestSecondary(username, 2, 2)
+func (cur *Profile) WriteFindFriendRequest(username, key string) {
+	encrypt := make([]byte, 0)
+	utils.SetBytes(&encrypt, []byte(username))
+	utils.SetBytes(&encrypt, []byte(cur.thisUser.Username))
+
+	//key:= UnmarshalPublicKey(DecPublicKey(keystr))
+	profilePublicKey := MarshalPublicKey(&cur.PrivateKey.PublicKey)
+	utils.SetBytes(&encrypt, profilePublicKey)
+	//TODO encryption
+	//encrypted := cur.encryptAES(&key,encrypt)
+	encrypted := encrypt
+	cur.WriteFindFriendRequestSecondary(username, 2, 2, -1, encrypted)
 }
 
-func (cur *Profile) FindFriendRequestSecondary(username string, depth, degree int) {
-	request := make([]byte, 8)
-	binary.BigEndian.PutUint64(request, uint64(len(username)))
-	//Required sort friends
+func (cur *Profile) WriteFindFriendRequestSecondary(username string, depth, degree, fromID int, encrypted []byte) {
+	request := make([]byte, 0)
+	utils.SetUint8(&request, RequestNetwork)
+
+	utils.SetUint16(&request, uint16(len(username)))
+	utils.SetUint16(&request, uint16(len(cur.thisUser.Username)))
+	utils.SetUint8(&request, uint8(depth))
+	utils.SetUint8(&request, uint8(degree))
+	utils.SetUint8(&request, uint8(0)) //BackTraceSize
+
+	utils.SetBytes(&request, encrypted)
+	//utils.SetBytes(&request,[]byte{0})//BackTrace
+
+	for i := 0; i < len(cur.Friends); i++ {
+		if i >= depth {
+			break
+		}
+		sendTo := cur.Friends[i]
+		if sendTo.Id == fromID {
+			continue
+		}
+		cur.WriteRequest(sendTo.Id, request)
+	}
 }
 
 func (cur *Profile) AddFriend(username, address, publicKey string) {
@@ -31,8 +60,9 @@ func (cur *Profile) AddFriend(username, address, publicKey string) {
 	id := cur.searchUser(username)
 	user := User{Username: username, Address: address, PublicKey: &decryptedPublicKey, IsFriend: true}
 	if id == -1 {
-		cur.addUser(user)
-		cur.FriendsIDXs.Store(cur.Friends[len(cur.Friends)-1].Id, len(cur.Friends)-1)
+		user.Id = cur.addUser(user)
+		cur.Friends = append(cur.Friends, user)
+		cur.FriendsIDXs.Store(len(cur.Friends)-1, cur.Friends[len(cur.Friends)-1])
 	} else {
 		cur.editUser(id, user)
 	}
@@ -50,6 +80,6 @@ func (cur *Profile) ConnectToFriends() {
 	}
 }
 
-func (cur *Profile) ConnectToFriend(userId int) {
-	go cur.connect(cur.getFriendNumber(userId))
+func (cur *Profile) ConnectToFriend(pos int) {
+	go cur.connect(cur.getFriendNumber(pos))
 }
