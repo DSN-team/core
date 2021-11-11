@@ -6,6 +6,7 @@ import (
 	"github.com/DSN-team/core/utils"
 	"io"
 	"log"
+	"math/big"
 	"net"
 	"runtime"
 	"time"
@@ -200,31 +201,51 @@ func (cur *Profile) verificationHandler(clientId int, clientReader *bufio.Reader
 }
 
 func (cur *Profile) networkHandler(clientId int, clientReader *bufio.Reader) {
-	//Username size
-	userNameSize := utils.GetUint16Reader(clientReader)
-	fromUserNameSize := utils.GetUint16Reader(clientReader)
+	//metaData sizes
 	requestDepth := utils.GetUint8Reader(clientReader)
 	requestDegree := utils.GetUint8Reader(clientReader)
 	backTraceSize := utils.GetUint8Reader(clientReader)
-	//todo complete this
-	encrypted, _ := utils.GetBytes(clientReader, uint64(255))
-	username, _ := utils.GetBytes(clientReader, uint64(userNameSize))
-	fromUsername, _ := utils.GetBytes(clientReader, uint64(fromUserNameSize))
-	//profilePublicKey, _ := utils.GetBytes(clientReader, uint64(backTraceSize))
 	backTrace, _ := utils.GetBytes(clientReader, uint64(backTraceSize))
+
+	userNameSize := utils.GetUint16Reader(clientReader)
+	fromUserNameSize := utils.GetUint16Reader(clientReader)
+
+	//todo complete this
+	publicKey, _ := utils.GetBytes(clientReader, uint64(128))
+	metaDataSize := utils.GetUint32Reader(clientReader)
+	metaDataEncrypted, _ := utils.GetBytes(clientReader, uint64(metaDataSize))
+	signSize := utils.GetUint32Reader(clientReader)
+	signDataEncrypted, _ := utils.GetBytes(clientReader, uint64(signSize))
+
+	signData := cur.decryptAES(signDataEncrypted)
+
+	r := new(big.Int).SetBytes(signData[0 : signSize/2])
+	s := new(big.Int).SetBytes(signData[signSize/2 : signSize/2])
+
+	if cur.verifyData(metaDataEncrypted, *r, *s) == true {
+		metaData := cur.decryptAES(metaDataEncrypted)
+		username := metaData[0:userNameSize]
+		fromUsername := metaData[userNameSize:fromUserNameSize]
+
+		fmt.Println("UserNameSize:", userNameSize, " FromUserNameSize:", fromUserNameSize, " Username:", username,
+			" Depth:", requestDepth, " BackTrace:", backTrace)
+		if cur.ThisUser.Username == string(username) {
+			fmt.Println("Friend request done, request from:", string(fromUsername), "Accept?")
+			cur.DataStrOutput = append([]byte{RequestNetwork}, fromUsername...)
+			cur.DataStrOutput = append(cur.DataStrOutput, publicKey...)
+
+			cur.DataStrOutput = append(cur.DataStrOutput, backTrace...)
+
+			UpdateUI(int(userNameSize), clientId)
+			return
+		}
+	}
+
 	requestDepth--
 	//Required: Friends.ping && Friends.is_online
-	fmt.Println("UserNameSize:", userNameSize, " username:", username,
-		" Depth:", requestDepth, " BackTrace:", backTrace)
-	if cur.ThisUser.Username == string(username) {
-		fmt.Println("Friend request done, request from:", string(fromUsername), "Accept?")
-		cur.DataStrOutput = append([]byte{RequestNetwork}, fromUsername...)
-		cur.DataStrOutput = append(cur.DataStrOutput, backTrace...)
-
-		UpdateUI(int(userNameSize), clientId)
-		return
-	}
 	if requestDepth > 0 {
-		cur.WriteFindFriendRequestSecondary(string(username), int(requestDepth), int(requestDegree), clientId, encrypted)
+		encrypted := make([]byte, 0)
+		cur.buildEncryptedPart(&encrypted, publicKey, signData, metaDataEncrypted)
+		cur.writeFindFriendRequestSecondary(int(requestDepth), int(requestDegree), clientId, backTrace, encrypted)
 	}
 }

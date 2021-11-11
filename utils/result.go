@@ -31,6 +31,9 @@ func GetUint8Reader(clientReader *bufio.Reader) uint8 {
 }
 
 func GetBytes(reader *bufio.Reader, size uint64) ([]byte, error) {
+	if size == 0 {
+		return make([]byte, 0), nil
+	}
 	state, err := reader.Peek(int(size))
 	if err != nil {
 		log.Println(err)
@@ -74,6 +77,10 @@ func SetUint8(request *[]byte, data uint8) {
 }
 
 func SetBytes(request *[]byte, data []byte) {
+	*request = append(*request, data...)
+}
+func SetSlice(request *[]byte, data []byte) {
+	SetUint64(request, uint64(len(data)))
 	*request = append(*request, data...)
 }
 func SetByte(request *[]byte, data byte) {
