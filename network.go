@@ -179,7 +179,7 @@ func (cur *Profile) dataHandler(clientId int, clientReader *bufio.Reader) {
 	count := utils.GetUint64Reader(clientReader)
 	log.Println("Count:", count)
 	cur.DataStrOutput, err = utils.GetBytes(clientReader, count)
-	cur.DataStrOutput = append([]byte(RequestData), cur.DataStrOutput...)
+	cur.DataStrOutput = append([]byte{RequestData}, cur.DataStrOutput...)
 	switch err {
 	case nil:
 		log.Println(cur.DataStrOutput)
@@ -205,11 +205,11 @@ func (cur *Profile) networkHandler(clientId int, clientReader *bufio.Reader) {
 	requestDepth := utils.GetUint8Reader(clientReader)
 	requestDegree := utils.GetUint8Reader(clientReader)
 	backTraceSize := utils.GetUint8Reader(clientReader)
-
-	encrypted, _ := utils.GetBytes(clientReader, y)
+	//todo complete this
+	encrypted, _ := utils.GetBytes(clientReader, uint64(255))
 	username, _ := utils.GetBytes(clientReader, uint64(userNameSize))
 	fromUsername, _ := utils.GetBytes(clientReader, uint64(fromUserNameSize))
-	profilePublicKey, _ := utils.GetBytes(clientReader, uint64(backTraceSize))
+	//profilePublicKey, _ := utils.GetBytes(clientReader, uint64(backTraceSize))
 	backTrace, _ := utils.GetBytes(clientReader, uint64(backTraceSize))
 	requestDepth--
 	//Required: Friends.ping && Friends.is_online
@@ -217,13 +217,13 @@ func (cur *Profile) networkHandler(clientId int, clientReader *bufio.Reader) {
 		" Depth:", requestDepth, " BackTrace:", backTrace)
 	if cur.thisUser.Username == string(username) {
 		fmt.Println("Friend request done, request from:", string(fromUsername), "Accept?")
-		cur.DataStrOutput = append([]byte(RequestNetwork), fromUsername...)
+		cur.DataStrOutput = append([]byte{RequestNetwork}, fromUsername...)
 		cur.DataStrOutput = append(cur.DataStrOutput, backTrace...)
 
 		UpdateUI(int(userNameSize), clientId)
 		return
 	}
 	if requestDepth > 0 {
-		cur.WriteFindFriendRequestSecondary(string(username), int(requestDepth), int(requestDegree), clientId)
+		cur.WriteFindFriendRequestSecondary(string(username), int(requestDepth), int(requestDegree), clientId, encrypted)
 	}
 }
