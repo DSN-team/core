@@ -19,7 +19,7 @@ func (cur *Profile) getFriendNumber(id int) int {
 func (cur *Profile) WriteFindFriendRequest(username, key string) {
 	encrypt := make([]byte, 0)
 	utils.SetBytes(&encrypt, []byte(username))
-	utils.SetBytes(&encrypt, []byte(cur.thisUser.Username))
+	utils.SetBytes(&encrypt, []byte(cur.ThisUser.Username))
 
 	//key:= UnmarshalPublicKey(DecPublicKey(keystr))
 	profilePublicKey := MarshalPublicKey(&cur.PrivateKey.PublicKey)
@@ -35,7 +35,7 @@ func (cur *Profile) WriteFindFriendRequestSecondary(username string, depth, degr
 	utils.SetUint8(&request, RequestNetwork)
 
 	utils.SetUint16(&request, uint16(len(username)))
-	utils.SetUint16(&request, uint16(len(cur.thisUser.Username)))
+	utils.SetUint16(&request, uint16(len(cur.ThisUser.Username)))
 	utils.SetUint8(&request, uint8(depth))
 	utils.SetUint8(&request, uint8(degree))
 	utils.SetUint8(&request, uint8(0)) //BackTraceSize

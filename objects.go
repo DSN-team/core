@@ -17,7 +17,7 @@ type User struct {
 
 type Profile struct {
 	Password   string
-	thisUser   User
+	ThisUser   User
 	PrivateKey *ecdsa.PrivateKey
 	//From ID to index
 	FriendsIDXs   sync.Map

@@ -106,11 +106,11 @@ func (cur *Profile) RunServer(address string) {
 	go cur.server(address)
 }
 
-func BuildDataRequest(requestType byte, size uint64, data []byte) (output []byte) {
+func (cur *Profile) BuildDataRequest(requestType byte, size uint64, data []byte, userId int) (output []byte) {
 	request := make([]byte, 0)
 	utils.SetByte(&request, requestType)
 	utils.SetUint64(&request, size)
-	utils.SetBytes(&request, data)
+	utils.SetBytes(&request, cur.encryptAES(cur.Friends[userId].PublicKey, data))
 	return request
 }
 
@@ -178,7 +178,8 @@ func (cur *Profile) dataHandler(clientId int, clientReader *bufio.Reader) {
 	// Waiting for the client request
 	count := utils.GetUint64Reader(clientReader)
 	log.Println("Count:", count)
-	cur.DataStrOutput, err = utils.GetBytes(clientReader, count)
+	encData, err := utils.GetBytes(clientReader, count)
+	cur.DataStrOutput = cur.decryptAES(encData)
 	cur.DataStrOutput = append([]byte{RequestData}, cur.DataStrOutput...)
 	switch err {
 	case nil:
@@ -215,7 +216,7 @@ func (cur *Profile) networkHandler(clientId int, clientReader *bufio.Reader) {
 	//Required: Friends.ping && Friends.is_online
 	fmt.Println("UserNameSize:", userNameSize, " username:", username,
 		" Depth:", requestDepth, " BackTrace:", backTrace)
-	if cur.thisUser.Username == string(username) {
+	if cur.ThisUser.Username == string(username) {
 		fmt.Println("Friend request done, request from:", string(fromUsername), "Accept?")
 		cur.DataStrOutput = append([]byte{RequestNetwork}, fromUsername...)
 		cur.DataStrOutput = append(cur.DataStrOutput, backTrace...)

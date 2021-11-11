@@ -32,7 +32,7 @@ func RunProfile(nameNumber string) *core.Profile {
 }
 
 func CreateNetwork(from, to *core.Profile) {
-	from.AddFriend(to.thisUser.Username, to.thisUser.Address, to.GetProfilePublicKey())
+	from.AddFriend(to.ThisUser.Username, to.ThisUser.Address, to.GetProfilePublicKey())
 }
 
 func StartConnection(from *core.Profile) {
@@ -47,9 +47,9 @@ func StartConnection(from *core.Profile) {
 }
 
 func ProfileToString(user *core.Profile) (output string) {
-	output += "Username:" + user.thisUser.Username
+	output += "Username:" + user.ThisUser.Username
 	output += "Password:" + user.Password
-	output += "Address:" + user.thisUser.Address
+	output += "Address:" + user.ThisUser.Address
 	return output
 }
 func ConnectionsToString(profile *core.Profile) (output string) {
