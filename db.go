@@ -13,17 +13,26 @@ var db *sql.DB
 
 func createUsersTable() {
 	log.Println("creating users table")
-	_, err := db.Exec("create table if not exists users (Id integer not null constraint users_pk primary key autoincrement, profile_id integer not null, Username text, Address text not null, public_key text not null, is_friend integer default 0)")
+	_, err := db.Exec("create table if not exists users (id integer not null constraint users_pk primary key autoincrement, profile_id integer not null, username text, address text not null, public_key text not null, is_friend integer default 0)")
 	ErrHandler(err)
-	_, err = db.Exec("create unique index if not exists users_id_uindex on users (Id)")
+	_, err = db.Exec("create unique index if not exists users_id_uindex on users (id)")
 	ErrHandler(err)
 }
 
 func createProfilesTable() {
 	log.Println("creating Profiles table")
-	_, err := db.Exec("create table if not exists Profiles (Id integer not null constraint profiles_pk primary key autoincrement, Username text, Address text, PrivateKey text)")
+	_, err := db.Exec("create table if not exists profiles (id integer not null constraint profiles_pk primary key autoincrement, username text, address text, private_key text)")
 	ErrHandler(err)
-	_, err = db.Exec("create unique index if not exists profiles_id_uindex on Profiles (Id)")
+	_, err = db.Exec("create unique index if not exists profiles_id_uindex on profiles (id)")
+	ErrHandler(err)
+}
+
+func createFriendRequestsTable() {
+	log.Println("creating friends requests table")
+	_, err := db.Exec("create table if not exists friends_requests (id integer not null constraint friends_requests_pk primary key autoincrement, profile_id integer not null, friend_id integer not null)")
+	ErrHandler(err)
+	_, err = db.Exec("create unique index if not exists friends_requests_id_uindex on friends_requests (id)")
+	ErrHandler(err)
 }
 
 func StartDB() {
@@ -34,11 +43,21 @@ func StartDB() {
 	ErrHandler(err)
 	createProfilesTable()
 	createUsersTable()
+	createFriendRequestsTable()
 }
+
+func (cur *Profile) addFriendRequest(id int) {
+	log.Println("Adding friend request: friend id =", id)
+	_, err := db.Exec("INSERT INTO (profile_id, friend_id) VALUES ($0,$1)", cur.thisUser.Id, id)
+	ErrHandler(err)
+}
+
+//todo array of ids
+func (cur *Profile) getFriendRequests() {}
 
 func (cur *Profile) searchUser(username string) (id int) {
 	log.Println("searching user, ", username)
-	rows, err := db.Query("SELECT Id FROM users WHERE Username = $0 limit 1", username)
+	rows, err := db.Query("SELECT id FROM users WHERE username = $0 limit 1", username)
 	id = -1
 	if ErrHandler(err) {
 		return
@@ -58,7 +77,7 @@ func (cur *Profile) searchUser(username string) (id int) {
 
 func (cur *Profile) addUser(user User) (id int) {
 	log.Println("Adding user", user.Username)
-	_, err := db.Exec("INSERT INTO users (profile_id,Username,Address,public_key,is_friend) VALUES ($0,$1,$2,$3,$5)", cur.thisUser.Id, user.Username, user.Address, EncPublicKey(MarshalPublicKey(user.PublicKey)), user.IsFriend)
+	_, err := db.Exec("INSERT INTO users (profile_id,username,address,public_key,is_friend) VALUES ($0,$1,$2,$3,$5)", cur.thisUser.Id, user.Username, user.Address, EncPublicKey(MarshalPublicKey(user.PublicKey)), user.IsFriend)
 	ErrHandler(err)
 	rows, err := db.Query("SELECT Id FROM users ORDER BY column DESC LIMIT 1")
 
@@ -74,7 +93,7 @@ func (cur *Profile) addUser(user User) (id int) {
 
 func (cur *Profile) editUser(id int, user User) {
 	log.Println("Editing user", id)
-	_, err := db.Exec("UPDATE users SET Address = $1, public_key = $2 WHERE Id = $0", id, user.Address, EncPublicKey(MarshalPublicKey(user.PublicKey)))
+	_, err := db.Exec("UPDATE users SET address = $1, public_key = $2 WHERE id = $0", id, user.Address, EncPublicKey(MarshalPublicKey(user.PublicKey)))
 	if ErrHandler(err) {
 		return
 	}
@@ -82,7 +101,7 @@ func (cur *Profile) editUser(id int, user User) {
 
 func (cur *Profile) getFriends() []User {
 	log.Println("Getting Friends")
-	rows, err := db.Query("SELECT Id, Username, Address, public_key, is_friend FROM users WHERE is_friend = 1 and profile_id = $0", cur.thisUser.Id)
+	rows, err := db.Query("SELECT id, username, address, public_key, is_friend FROM users WHERE is_friend = 1 and profile_id = $0", cur.thisUser.Id)
 	if ErrHandler(err) {
 		return nil
 	}
@@ -111,9 +130,9 @@ func (cur *Profile) getFriends() []User {
 func addProfile(profile *Profile) (id int) {
 	log.Println("Adding Profile", profile.thisUser.Username)
 	privateKeyBytes := profile.encProfileKey()
-	_, err := db.Exec("INSERT INTO Profiles (Username, Address, PrivateKey) VALUES ($0,$1,$2)", profile.thisUser.Username, profile.thisUser.Address, string(privateKeyBytes))
+	_, err := db.Exec("INSERT INTO profiles (username, address, private_key) VALUES ($0,$1,$2)", profile.thisUser.Username, profile.thisUser.Address, string(privateKeyBytes))
 	ErrHandler(err)
-	rows, err := db.Query("SELECT Id FROM Profiles ORDER BY column DESC LIMIT 1")
+	rows, err := db.Query("SELECT id FROM profiles ORDER BY id DESC LIMIT 1")
 
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
@@ -128,7 +147,7 @@ func addProfile(profile *Profile) (id int) {
 func getProfiles() []ShowProfile {
 	log.Println("Getting Profiles")
 
-	rows, err := db.Query("SELECT Id, Username FROM Profiles")
+	rows, err := db.Query("SELECT id, username FROM profiles")
 	if ErrHandler(err) {
 		return nil
 	}
@@ -152,7 +171,7 @@ func getProfiles() []ShowProfile {
 
 func getProfileByID(id int) (string, string, []byte) {
 	log.Println("Getting Profile by ID", id)
-	rows, err := db.Query("SELECT Username, Address, PrivateKey FROM Profiles WHERE Id=$0", id)
+	rows, err := db.Query("SELECT username, address, private_key FROM profiles WHERE id=$0", id)
 	if ErrHandler(err) {
 		return "", "", nil
 	}
@@ -176,7 +195,7 @@ func getProfileByID(id int) (string, string, []byte) {
 
 func getUserByPublicKey(publicKey string) int {
 	log.Println("Getting Profile by key")
-	rows, err := db.Query("SELECT Id FROM users WHERE public_key=$0", publicKey)
+	rows, err := db.Query("SELECT id FROM users WHERE public_key=$0", publicKey)
 	if ErrHandler(err) {
 		return 0
 	}
