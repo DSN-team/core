@@ -91,6 +91,9 @@ func (cur *Profile) AddFriend(username, address, publicKey string) {
 func (cur *Profile) LoadFriends() int {
 	println("Loading Friends from db")
 	cur.Friends = cur.getFriends()
+	for i := 0; i < len(cur.Friends); i++ {
+		cur.FriendsIDXs.Store(cur.Friends[i].Id, i)
+	}
 	return len(cur.Friends)
 }
 
