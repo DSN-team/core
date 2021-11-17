@@ -40,6 +40,7 @@ func (cur *Profile) server(address string) {
 
 		clientReader := bufio.NewReader(con)
 		publicKeyLen := len(profilePublicKey)
+		//TODO Add network type
 		println(publicKeyLen)
 		clientKey, err := clientReader.Peek(publicKeyLen)
 		ErrHandler(err)
@@ -235,6 +236,10 @@ func (cur *Profile) networkHandler(clientReader *bufio.Reader) {
 		fmt.Println("UserNameSize:", userNameSize, " FromUserNameSize:", fromUserNameSize, " Username:", username,
 			" Depth:", requestDepth, " BackTrace:", backTrace)
 		if cur.ThisUser.Username == string(username) {
+			key := UnmarshalPublicKey(publicKey)
+			friendId = cur.addUser(User{Username: string(username), PublicKey: &key, IsFriend: false})
+			cur.addFriendRequest(friendId)
+
 			fmt.Println("Friend request done, request from:", string(fromUsername), "Accept?")
 			cur.DataStrOutput = append([]byte{RequestNetwork}, fromUsername...)
 			cur.DataStrOutput = append(cur.DataStrOutput, publicKey...)
