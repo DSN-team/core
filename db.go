@@ -48,16 +48,61 @@ func StartDB() {
 
 func (cur *Profile) addFriendRequest(id int) {
 	log.Println("Adding friend request: friend id =", id)
-	_, err := db.Exec("INSERT INTO (profile_id, friend_id) VALUES ($0,$1)", cur.ThisUser.Id, id)
+	_, err := db.Exec("INSERT INTO friend_requests (profile_id, friend_id) VALUES ($0,$1)", cur.ThisUser.Id, id)
 	ErrHandler(err)
 }
 
 //todo array of ids
-func (cur *Profile) getFriendRequests() {}
+func (cur *Profile) getFriendRequests() []int {
+	array := make([]int, 0)
+	rows, err := db.Query("SELECT friend_id FROM friends_requests WHERE profile_id = $0 DESC", cur.ThisUser.Id)
+	if ErrHandler(err) {
+		return nil
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		ErrHandler(err)
+	}(rows)
+	for rows.Next() {
+		friendId := -1
+		err = rows.Scan(&friendId)
+		if ErrHandler(err) {
+			return nil
+		}
+		if friendId != -1 {
+			array = append(array, friendId)
+		}
+	}
+	return array
+}
+
+func (cur *Profile) searchFriendRequest(id int) bool {
+	log.Println("searching friend request: friend id =", id)
+	rows, err := db.Query("SELECT id FROM friends_requests WHERE friend_id = $0 and profile_id = $1 limit 1", id, cur.ThisUser.Id)
+	id = -1
+	if ErrHandler(err) {
+		return false
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		ErrHandler(err)
+	}(rows)
+	rows.Next()
+	err = rows.Scan(&id)
+	if ErrHandler(err) {
+		return false
+	} else {
+		if id == -1 {
+			return false
+		} else {
+			return true
+		}
+	}
+}
 
 func (cur *Profile) searchUser(username string) (id int) {
 	log.Println("searching user, ", username)
-	rows, err := db.Query("SELECT id FROM users WHERE username = $0 limit 1", username)
+	rows, err := db.Query("SELECT id FROM users WHERE username = $0 and profile = $1 limit 1", username, cur.ThisUser.Id)
 	id = -1
 	if ErrHandler(err) {
 		return
@@ -93,7 +138,7 @@ func (cur *Profile) addUser(user User) (id int) {
 
 func (cur *Profile) editUser(id int, user User) {
 	log.Println("Editing user", id)
-	_, err := db.Exec("UPDATE users SET address = $1, public_key = $2 WHERE id = $0", id, user.Address, EncPublicKey(MarshalPublicKey(user.PublicKey)))
+	_, err := db.Exec("UPDATE users SET address = $1, public_key = $2 WHERE id = $0 and profile_id = $3", id, user.Address, EncPublicKey(MarshalPublicKey(user.PublicKey)), cur.ThisUser.Id)
 	if ErrHandler(err) {
 		return
 	}
@@ -193,9 +238,9 @@ func getProfileByID(id int) (string, string, []byte) {
 	return username, address, []byte(privateKeyString)
 }
 
-func getUserByPublicKey(publicKey string) int {
+func (cur *Profile) getUserByPublicKey(publicKey string) int {
 	log.Println("Getting Profile by key")
-	rows, err := db.Query("SELECT id FROM users WHERE public_key=$0", publicKey)
+	rows, err := db.Query("SELECT id FROM users WHERE public_key=$0 and profile_id=$1", publicKey, cur.ThisUser.Id)
 	if ErrHandler(err) {
 		return 0
 	}
@@ -205,7 +250,7 @@ func getUserByPublicKey(publicKey string) int {
 		ErrHandler(err)
 	}(rows)
 
-	var id int
+	id := -1
 	rows.Next()
 	err = rows.Scan(&id)
 	if ErrHandler(err) {
