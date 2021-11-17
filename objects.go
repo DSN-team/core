@@ -20,14 +20,20 @@ type Profile struct {
 	ThisUser   User
 	PrivateKey *ecdsa.PrivateKey
 	//From ID to index
-	FriendsIDXs   sync.Map
-	Connections   sync.Map
-	Friends       []User
-	DataStrOutput []byte
-	DataStrInput  []byte
+	FriendsIDXs    sync.Map
+	Connections    sync.Map
+	Friends        []User
+	FriendRequests []FriendRequest
+	DataStrOutput  []byte
+	DataStrInput   []byte
 }
 
 type ShowProfile struct {
 	Id       int
 	Username string
+}
+
+type FriendRequest struct {
+	PublicKey string
+	Username  string
 }

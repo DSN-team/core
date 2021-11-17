@@ -103,3 +103,8 @@ func (cur *Profile) ConnectToFriends() {
 func (cur *Profile) ConnectToFriend(pos int) {
 	go cur.connect(cur.getFriendNumber(pos))
 }
+
+func (cur *Profile) LoadFriendsRequests() int {
+	cur.FriendRequests = cur.GetFriendRequests()
+	return len(cur.FriendRequests)
+}

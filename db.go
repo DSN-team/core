@@ -52,9 +52,9 @@ func (cur *Profile) addFriendRequest(id int) {
 	ErrHandler(err)
 }
 
-func (cur *Profile) GetFriendRequests() []int {
-	array := make([]int, 0)
-	rows, err := db.Query("SELECT friend_id FROM friends_requests WHERE profile_id = $0 DESC", cur.ThisUser.Id)
+func (cur *Profile) GetFriendRequests() []FriendRequest {
+	var friendRequests []FriendRequest
+	rows, err := db.Query("SELECT users.public_key, users.username FROM friends_requests JOIN users ON friends_requests.friend_id = users.id WHERE profile_id = $0 DESC", cur.ThisUser.Id)
 	if ErrHandler(err) {
 		return nil
 	}
@@ -63,16 +63,14 @@ func (cur *Profile) GetFriendRequests() []int {
 		ErrHandler(err)
 	}(rows)
 	for rows.Next() {
-		friendId := -1
-		err = rows.Scan(&friendId)
+		friendRequest := FriendRequest{}
+		err = rows.Scan(&friendRequest.PublicKey, &friendRequest.Username)
 		if ErrHandler(err) {
 			return nil
 		}
-		if friendId != -1 {
-			array = append(array, friendId)
-		}
+		friendRequests = append(friendRequests, friendRequest)
 	}
-	return array
+	return friendRequests
 }
 
 func (cur *Profile) searchFriendRequest(id int) bool {
