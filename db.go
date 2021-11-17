@@ -98,8 +98,8 @@ func (cur *Profile) searchFriendRequest(id int) bool {
 }
 
 func (cur *Profile) searchUser(username string) (id int) {
-	log.Println("searching user, ", username)
-	rows, err := db.Query("SELECT id FROM users WHERE username = $0 and profile = $1 limit 1", username, cur.ThisUser.Id)
+	log.Println("searching user,", username)
+	rows, err := db.Query("SELECT id FROM users WHERE username = $0 and profile_id = $1 limit 1", username, cur.ThisUser.Id)
 	id = -1
 	if ErrHandler(err) {
 		return
