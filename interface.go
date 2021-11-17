@@ -5,6 +5,7 @@ import (
 	"log"
 )
 
+// UpdateUI size, id
 var UpdateUI = func(int, int) {}
 
 func (cur *Profile) Register(username, password, address string) bool {
