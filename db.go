@@ -52,8 +52,7 @@ func (cur *Profile) addFriendRequest(id int) {
 	ErrHandler(err)
 }
 
-//todo array of ids
-func (cur *Profile) getFriendRequests() []int {
+func (cur *Profile) GetFriendRequests() []int {
 	array := make([]int, 0)
 	rows, err := db.Query("SELECT friend_id FROM friends_requests WHERE profile_id = $0 DESC", cur.ThisUser.Id)
 	if ErrHandler(err) {
