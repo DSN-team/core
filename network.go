@@ -48,18 +48,15 @@ func (cur *Profile) server(address string) {
 
 		log.Println("reader size:", clientReader.Size())
 
-		var clientId int
-
 		clientPublicKeyString := EncPublicKey(clientKey)
 		profilePublicKeyString := EncPublicKey(profilePublicKey)
-		log.Println("Current profile public key:", profilePublicKeyString)
-		log.Println("client public key:", clientPublicKeyString)
+
+		var clientId int
 
 		if profilePublicKeyString != clientPublicKeyString {
-			clientId = getUserByPublicKey(clientPublicKeyString)
-			if clientId == 0 {
+			clientId = cur.getUserByPublicKey(clientPublicKeyString)
+			if clientId == -1 {
 				log.Println("not found in database")
-				return
 			}
 		}
 
@@ -163,7 +160,7 @@ func (cur *Profile) handleRequest(clientId int, con net.Conn) {
 			}
 		case RequestNetwork:
 			{
-				cur.networkHandler(clientId, clientReader)
+				cur.networkHandler(clientReader)
 				break
 			}
 		case RequestDataVerification:
@@ -176,6 +173,10 @@ func (cur *Profile) handleRequest(clientId int, con net.Conn) {
 }
 
 func (cur *Profile) dataHandler(clientId int, clientReader *bufio.Reader) {
+	if clientId == -1 {
+		return
+	}
+
 	// Waiting for the client request
 	count := utils.GetUint64Reader(clientReader)
 	log.Println("Count:", count)
@@ -197,10 +198,14 @@ func (cur *Profile) dataHandler(clientId int, clientReader *bufio.Reader) {
 }
 
 func (cur *Profile) verificationHandler(clientId int, clientReader *bufio.Reader) {
+	if clientId == -1 {
+		return
+	}
 	cur.Friends[cur.getFriendNumber(clientId)].Ping = int(utils.GetUint16Reader(clientReader))
 }
 
-func (cur *Profile) networkHandler(clientId int, clientReader *bufio.Reader) {
+func (cur *Profile) networkHandler(clientReader *bufio.Reader) {
+	var friendId int
 	//metaData sizes
 	requestDepth := utils.GetUint8Reader(clientReader)
 	requestDegree := utils.GetUint8Reader(clientReader)
@@ -233,10 +238,9 @@ func (cur *Profile) networkHandler(clientId int, clientReader *bufio.Reader) {
 			fmt.Println("Friend request done, request from:", string(fromUsername), "Accept?")
 			cur.DataStrOutput = append([]byte{RequestNetwork}, fromUsername...)
 			cur.DataStrOutput = append(cur.DataStrOutput, publicKey...)
-
 			cur.DataStrOutput = append(cur.DataStrOutput, backTrace...)
 
-			UpdateUI(int(userNameSize), clientId)
+			UpdateUI(int(userNameSize), friendId)
 			return
 		}
 	}
@@ -246,6 +250,6 @@ func (cur *Profile) networkHandler(clientId int, clientReader *bufio.Reader) {
 	if requestDepth > 0 {
 		encrypted := make([]byte, 0)
 		cur.buildEncryptedPart(&encrypted, publicKey, signData, metaDataEncrypted)
-		cur.writeFindFriendRequestSecondary(int(requestDepth), int(requestDegree), clientId, backTrace, encrypted)
+		cur.writeFindFriendRequestSecondary(int(requestDepth), int(requestDegree), friendId, backTrace, encrypted)
 	}
 }
