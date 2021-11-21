@@ -85,12 +85,12 @@ func (cur *Profile) AddFriend(username, address, publicKey string) {
 	user := User{Username: username, Address: address, PublicKey: &decryptedPublicKey, IsFriend: false}
 	if id == -1 {
 		user.Id = cur.addUser(user)
-		cur.addFriendRequest(user.Id, 0)
-		//TODO: send request to target
-		go cur.WriteFindFriendRequest(user.Username, user.PublicKey)
 		//cur.Friends = append(cur.Friends, user)
 		//cur.FriendsIDXs.Store(len(cur.Friends)-1, cur.Friends[len(cur.Friends)-1])
 	}
+	//TODO: send request to target
+	cur.addFriendRequest(user.Id, 0)
+	go cur.WriteFindFriendRequest(user.Username, user.PublicKey)
 	//else {
 	//	cur.editUser(id, user)
 	//}

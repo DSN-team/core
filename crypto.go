@@ -26,23 +26,26 @@ func genProfileKey() (key *ecdsa.PrivateKey) {
 }
 
 func EncPublicKey(key []byte) (keyString string) {
-	println("encrypting public key")
+	log.Println("encoding public key")
 	keyString = base64.StdEncoding.EncodeToString(key)
+	log.Println("encoded public key", keyString)
 	return
 }
 
-func DecPublicKey(data string) []byte {
-	println("decrypting public key")
-	publicKeyBytes, err := base64.StdEncoding.DecodeString(data)
+func DecPublicKey(data string) (publicKeyBytes []byte) {
+	println("decoding public key")
+	publicKeyBytes, err = base64.StdEncoding.DecodeString(data)
 	if ErrHandler(err) {
 		return nil
 	}
-	return publicKeyBytes
+	log.Println("decode public key", publicKeyBytes)
+	return
 }
 
 func MarshalPublicKey(key *ecdsa.PublicKey) (data []byte) {
 	println("marshal Public Key", key)
 	data = elliptic.Marshal(key, key.X, key.Y)
+	log.Println("marshalled Public Key", data)
 	return
 }
 
@@ -50,10 +53,12 @@ func UnmarshalPublicKey(data []byte) (key ecdsa.PublicKey) {
 	println("unmarshal Public Key", data)
 	x, y := elliptic.Unmarshal(Curve(), data)
 	key = ecdsa.PublicKey{Curve: Curve(), X: x, Y: y}
+	log.Println("unmarshalled public key", key)
 	return
 }
 
 func (cur *Profile) encProfileKey() (data []byte) {
+	log.Println("Encrypting profile key")
 	passwordHash := sha512.Sum512_256([]byte(cur.Password))
 	iv := passwordHash[:aes.BlockSize]
 	key, err := x509.MarshalECPrivateKey(cur.PrivateKey)
@@ -63,6 +68,7 @@ func (cur *Profile) encProfileKey() (data []byte) {
 }
 
 func (cur *Profile) decProfileKey(encKey []byte, password string) bool {
+	log.Println("Decrypting profile key")
 	passwordHash := sha512.Sum512_256([]byte(password))
 	iv := passwordHash[:aes.BlockSize]
 	data := decryptCBC(encKey, iv, passwordHash[:aes.BlockSize])
@@ -76,6 +82,7 @@ func (cur *Profile) decProfileKey(encKey []byte, password string) bool {
 }
 
 func (cur *Profile) encryptAES(otherPublicKey *ecdsa.PublicKey, in []byte) (out []byte) {
+	log.Println("Encrypting aes")
 	x, _ := otherPublicKey.Curve.ScalarMult(otherPublicKey.X, otherPublicKey.Y, cur.PrivateKey.D.Bytes())
 	if x == nil {
 		return nil
@@ -106,6 +113,7 @@ func (cur *Profile) encryptAES(otherPublicKey *ecdsa.PublicKey, in []byte) (out 
 }
 
 func (cur *Profile) decryptAES(in []byte) (out []byte) {
+	log.Println("Decrypting aes")
 	ephLen := int(in[0])
 	ephPub := in[1 : 1+ephLen]
 	ct := in[1+ephLen:]
@@ -138,6 +146,7 @@ func (cur *Profile) decryptAES(in []byte) (out []byte) {
 }
 
 func encryptCBC(data, iv, key []byte) []byte {
+	log.Println("Encrypting cbc")
 	paddedData := addPadding(data)
 	log.Println("padded data: ", paddedData)
 	log.Println("data len:", len(paddedData))
@@ -157,6 +166,7 @@ func encryptCBC(data, iv, key []byte) []byte {
 }
 
 func decryptCBC(data, iv, key []byte) (decryptedData []byte) {
+	log.Println("Decrypting cbc")
 	log.Println("data length:", len(data), "data:", "iv:", iv, "key:", key)
 	aesCrypt, err := aes.NewCipher(key)
 	if ErrHandler(err) {
@@ -173,13 +183,14 @@ func decryptCBC(data, iv, key []byte) (decryptedData []byte) {
 }
 
 func makeRandom(length int) ([]byte, error) {
+	log.Println("Making random:", length)
 	bytes := make([]byte, length)
 	_, err := rand.Read(bytes)
 	return bytes, err
 }
 
 func removePadding(data []byte) []byte {
-	log.Println("removing padding")
+	log.Println("Removing padding")
 	log.Println("padded data len:", len(data))
 	if len(data) == 0 {
 		return nil
@@ -196,7 +207,7 @@ func removePadding(data []byte) []byte {
 
 // addPadding adds padding to a block of data
 func addPadding(data []byte) []byte {
-	log.Println("adding padding")
+	log.Println("Adding padding")
 	log.Println("data len:", len(data))
 	l := aesBlockLength - len(data)%aesBlockLength
 	log.Println("additional len to pad data", l)
@@ -207,11 +218,13 @@ func addPadding(data []byte) []byte {
 }
 
 func (cur *Profile) signData(data []byte) (*big.Int, *big.Int) {
+	log.Println("Signing data")
 	r, s, err := ecdsa.Sign(rand.Reader, cur.PrivateKey, data)
 	ErrHandler(err)
 	return r, s
 }
 
 func (cur *Profile) verifyData(data []byte, r, s big.Int) (result bool) {
+	log.Println("Verify data")
 	return ecdsa.Verify(&cur.PrivateKey.PublicKey, data, &r, &s)
 }
