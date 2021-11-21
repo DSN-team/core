@@ -48,7 +48,7 @@ func StartDB() {
 
 func (cur *Profile) addFriendRequest(id int, direction int) {
 	log.Println("Adding friend request: friend id =", id)
-	_, err := db.Exec("INSERT INTO friend_requests (profile_id, friend_id, direction) VALUES ($0,$1,$2)", cur.ThisUser.Id, id, direction)
+	_, err := db.Exec("INSERT INTO friends_requests (profile_id, friend_id, direction) VALUES ($0,$1,$2)", cur.ThisUser.Id, id, direction)
 	ErrHandler(err)
 }
 
