@@ -119,10 +119,10 @@ func (cur *Profile) searchUser(username string) (id int) {
 
 func (cur *Profile) addUser(user User) (id int) {
 	log.Println("Adding user, username:", user.Username, "address:", user.Address, "public key:", user.PublicKey)
-	_, err := db.Exec("INSERT INTO users (profile_id,username,address,public_key,is_friend) VALUES ($0,$1,$2,$3,$5)", cur.ThisUser.Id, user.Username, user.Address, EncPublicKey(MarshalPublicKey(user.PublicKey)), user.IsFriend)
+	_, err = db.Exec("INSERT INTO users (profile_id,username,address,public_key,is_friend) VALUES ($0,$1,$2,$3,$5)", cur.ThisUser.Id, user.Username, user.Address, EncPublicKey(MarshalPublicKey(user.PublicKey)), user.IsFriend)
 	ErrHandler(err)
-	rows, err := db.Query("SELECT id FROM users ORDER BY column DESC LIMIT 1")
-
+	rows, err := db.Query("SELECT id FROM users ORDER BY id DESC LIMIT 1")
+	ErrHandler(err)
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		ErrHandler(err)
@@ -172,10 +172,10 @@ func (cur *Profile) getFriends() []User {
 func addProfile(profile *Profile) (id int) {
 	log.Println("Adding Profile", profile.ThisUser.Username)
 	privateKeyBytes := profile.encProfileKey()
-	_, err := db.Exec("INSERT INTO profiles (username, address, private_key) VALUES ($0,$1,$2)", profile.ThisUser.Username, profile.ThisUser.Address, string(privateKeyBytes))
+	_, err = db.Exec("INSERT INTO profiles (username, address, private_key) VALUES ($0,$1,$2)", profile.ThisUser.Username, profile.ThisUser.Address, string(privateKeyBytes))
 	ErrHandler(err)
 	rows, err := db.Query("SELECT id FROM profiles ORDER BY id DESC LIMIT 1")
-
+	ErrHandler(err)
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		ErrHandler(err)
