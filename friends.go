@@ -3,6 +3,7 @@ package core
 import (
 	"crypto/ecdsa"
 	"github.com/DSN-team/core/utils"
+	"log"
 	"sort"
 )
 
@@ -18,6 +19,7 @@ func (cur *Profile) getFriendNumber(id int) int {
 }
 
 func (cur *Profile) WriteFindFriendRequest(friendUsername string, key *ecdsa.PublicKey) {
+	log.Println("Write friend request, friend:", friendUsername)
 	profilePublicKey := MarshalPublicKey(&cur.PrivateKey.PublicKey)
 
 	metadata := make([]byte, 0)
@@ -44,6 +46,7 @@ func (cur *Profile) WriteFindFriendRequest(friendUsername string, key *ecdsa.Pub
 	cur.writeFindFriendRequestSecondary(2, 2, -1, []byte{}, request)
 }
 func (cur *Profile) buildEncryptedPart(request *[]byte, key, sign, data []byte) {
+	log.Println("Building encrypted part")
 	utils.SetBytes(request, key)
 	utils.SetUint32(request, uint32(len(data)))
 	utils.SetBytes(request, data)
@@ -52,7 +55,7 @@ func (cur *Profile) buildEncryptedPart(request *[]byte, key, sign, data []byte) 
 }
 
 func (cur *Profile) writeFindFriendRequestSecondary(depth, degree, fromID int, previousTrace []byte, encrypted []byte) {
-
+	log.Print("Write find friend request secondary, depth:", depth, "degree:", degree, "fromID:", fromID)
 	for i := 0; i < len(cur.Friends); i++ {
 		if i >= depth {
 			break
@@ -76,20 +79,25 @@ func (cur *Profile) writeFindFriendRequestSecondary(depth, degree, fromID int, p
 }
 
 func (cur *Profile) AddFriend(username, address, publicKey string) {
+	log.Println("Add friend, username:", username, "address:", address, "publicKey:", publicKey)
 	decryptedPublicKey := UnmarshalPublicKey(DecPublicKey(publicKey))
 	id := cur.searchUser(username)
 	user := User{Username: username, Address: address, PublicKey: &decryptedPublicKey, IsFriend: true}
 	if id == -1 {
 		user.Id = cur.addUser(user)
-		cur.Friends = append(cur.Friends, user)
-		cur.FriendsIDXs.Store(len(cur.Friends)-1, cur.Friends[len(cur.Friends)-1])
-	} else {
-		cur.editUser(id, user)
+		cur.addFriendRequest(user.Id, 0)
+		//TODO: send request to target
+		go cur.WriteFindFriendRequest(username, &decryptedPublicKey)
+		//cur.Friends = append(cur.Friends, user)
+		//cur.FriendsIDXs.Store(len(cur.Friends)-1, cur.Friends[len(cur.Friends)-1])
 	}
+	//else {
+	//	cur.editUser(id, user)
+	//}
 }
 
 func (cur *Profile) LoadFriends() int {
-	println("Loading Friends from db")
+	log.Println("Loading Friends from db")
 	cur.Friends = cur.getFriends()
 	for i := 0; i < len(cur.Friends); i++ {
 		cur.FriendsIDXs.Store(cur.Friends[i].Id, i)

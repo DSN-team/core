@@ -34,14 +34,14 @@ func (cur *Profile) server(address string) {
 	for {
 		con, err := ln.Accept()
 		ErrHandler(err)
-		println("accepted server client")
+		log.Println("accepted server client")
 
 		profilePublicKey := MarshalPublicKey(&cur.PrivateKey.PublicKey)
 
 		clientReader := bufio.NewReader(con)
 		publicKeyLen := len(profilePublicKey)
 		//TODO Add network type
-		println(publicKeyLen)
+		log.Println(publicKeyLen)
 		clientKey, err := clientReader.Peek(publicKeyLen)
 		ErrHandler(err)
 		_, err = clientReader.Discard(publicKeyLen)
@@ -97,7 +97,7 @@ func (cur *Profile) connect(pos int) {
 		return
 	}
 
-	println("connected to target", targetId)
+	log.Println("connected to target", targetId)
 	go cur.handleRequest(targetId, con)
 }
 
@@ -106,10 +106,13 @@ func (cur *Profile) RunServer(address string) {
 }
 
 func (cur *Profile) BuildDataRequest(requestType byte, size uint64, data []byte, userId int) (output []byte) {
+	log.Println("Building data request, request type: ", requestType, "size:",
+		size, "data:", data, "user id:", userId)
 	request := make([]byte, 0)
 	utils.SetByte(&request, requestType)
 	utils.SetUint64(&request, size)
-	utils.SetBytes(&request, cur.encryptAES(cur.Friends[userId].PublicKey, data))
+	friendPos, _ := cur.FriendsIDXs.Load(userId)
+	utils.SetBytes(&request, cur.encryptAES(cur.Friends[friendPos.(int)].PublicKey, data))
 	return request
 }
 
@@ -125,11 +128,11 @@ func (cur *Profile) WriteRequest(userId int, request []byte) {
 	log.Println("writing to:", con.RemoteAddr())
 
 	log.Println("input:", cur.DataStrInput)
-	println("input str:", string(cur.DataStrInput))
+	log.Println("input str:", string(cur.DataStrInput))
 
 	switch err {
 	case nil:
-		println("ClientSend:", request, " count:", len(request))
+		log.Println("ClientSend:", request, " count:", len(request))
 		if _, err = con.Write(request); err != nil {
 			log.Printf("failed to send the client request: %v\n", err)
 		}
@@ -238,7 +241,7 @@ func (cur *Profile) networkHandler(clientReader *bufio.Reader) {
 		if cur.ThisUser.Username == string(username) {
 			key := UnmarshalPublicKey(publicKey)
 			friendId = cur.addUser(User{Username: string(username), PublicKey: &key, IsFriend: false})
-			cur.addFriendRequest(friendId)
+			cur.addFriendRequest(friendId, 1)
 
 			fmt.Println("Friend request done, request from:", string(fromUsername), "Accept?")
 			cur.DataStrOutput = append([]byte{RequestNetwork}, fromUsername...)

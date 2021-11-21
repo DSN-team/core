@@ -29,7 +29,7 @@ func createProfilesTable() {
 
 func createFriendRequestsTable() {
 	log.Println("creating friends requests table")
-	_, err := db.Exec("create table if not exists friends_requests (id integer not null constraint friends_requests_pk primary key autoincrement, profile_id integer not null, friend_id integer not null)")
+	_, err := db.Exec("create table if not exists friends_requests (id integer not null constraint friends_requests_pk primary key autoincrement, profile_id integer not null, friend_id integer not null, direction integer not null)")
 	ErrHandler(err)
 	_, err = db.Exec("create unique index if not exists friends_requests_id_uindex on friends_requests (id)")
 	ErrHandler(err)
@@ -46,9 +46,9 @@ func StartDB() {
 	createFriendRequestsTable()
 }
 
-func (cur *Profile) addFriendRequest(id int) {
+func (cur *Profile) addFriendRequest(id int, direction int) {
 	log.Println("Adding friend request: friend id =", id)
-	_, err := db.Exec("INSERT INTO friend_requests (profile_id, friend_id) VALUES ($0,$1)", cur.ThisUser.Id, id)
+	_, err := db.Exec("INSERT INTO friend_requests (profile_id, friend_id, direction) VALUES ($0,$1,$2)", cur.ThisUser.Id, id, direction)
 	ErrHandler(err)
 }
 
