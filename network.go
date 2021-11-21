@@ -84,13 +84,12 @@ func (cur *Profile) connect(user User) {
 	if _, ok := cur.Connections.Load(targetId); !ok {
 		log.Println("connection not found adding...")
 		cur.Connections.Store(targetId, con)
+		go cur.handleRequest(targetId, con)
+		log.Println("connected to target", targetId)
 	} else {
 		log.Println("connection already connected")
 		return
 	}
-
-	log.Println("connected to target", targetId)
-	go cur.handleRequest(targetId, con)
 }
 
 func (cur *Profile) RunServer(address string) {

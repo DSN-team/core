@@ -4,6 +4,7 @@ import (
 	"github.com/DSN-team/core/utils"
 	"log"
 	"sort"
+	"time"
 )
 
 func (cur *Profile) sortFriends() {
@@ -45,6 +46,7 @@ func (cur *Profile) WriteFindFriendRequest(user User) {
 	cur.writeFindFriendRequestDirect(0, 0, user, []byte{}, request)
 	cur.writeFindFriendRequestSecondary(2, 2, -1, []byte{}, request)
 }
+
 func (cur *Profile) buildEncryptedPart(request *[]byte, key, sign, data []byte) {
 	log.Println("Building encrypted part")
 	utils.SetBytes(request, key)
