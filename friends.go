@@ -64,17 +64,19 @@ func (cur *Profile) writeFindFriendRequestSecondary(depth, degree, fromID int, p
 		if sendTo.Id == fromID {
 			continue
 		}
-		request := make([]byte, 0)
-		utils.SetUint8(&request, RequestNetwork)
-		utils.SetUint8(&request, uint8(depth))
-		utils.SetUint8(&request, uint8(degree))
-		newTrace := make([]byte, 0)
-		utils.SetBytes(&newTrace, previousTrace)
-		utils.SetUint8(&newTrace, uint8(sendTo.Id))
-		utils.SetUint8(&request, uint8(len(newTrace))) //BackTraceSize
-		utils.SetBytes(&request, newTrace)             //BackTrace
-		utils.SetBytes(&request, encrypted)
-		cur.WriteRequest(sendTo.Id, request)
+		go func(sendTo User) {
+			request := make([]byte, 0)
+			utils.SetUint8(&request, RequestNetwork)
+			utils.SetUint8(&request, uint8(depth))
+			utils.SetUint8(&request, uint8(degree))
+			newTrace := make([]byte, 0)
+			utils.SetBytes(&newTrace, previousTrace)
+			utils.SetUint8(&newTrace, uint8(sendTo.Id))
+			utils.SetUint8(&request, uint8(len(newTrace))) //BackTraceSize
+			utils.SetBytes(&request, newTrace)             //BackTrace
+			utils.SetBytes(&request, encrypted)
+			cur.WriteRequest(sendTo.Id, request)
+		}(sendTo)
 	}
 }
 
@@ -90,6 +92,7 @@ func (cur *Profile) writeFindFriendRequestDirect(depth, degree int, sendTo User,
 	utils.SetUint8(&request, uint8(len(newTrace))) //BackTraceSize
 	utils.SetBytes(&request, newTrace)             //BackTrace
 	utils.SetBytes(&request, encrypted)
+	cur.connect(sendTo)
 	cur.WriteRequest(sendTo.Id, request)
 }
 
@@ -121,13 +124,23 @@ func (cur *Profile) LoadFriends() int {
 }
 
 func (cur *Profile) ConnectToFriends() {
-	for i := 0; i < len(cur.Friends); i++ {
-		go cur.connect(i)
-	}
+
+	go func() {
+		for i := 0; i < len(cur.Friends); i++ {
+			go cur.connect(cur.Friends[i])
+		}
+		for {
+			time.Sleep(250 * time.Millisecond)
+			for i := 0; i < len(cur.Friends); i++ {
+				cur.connect(cur.Friends[i])
+			}
+		}
+	}()
+
 }
 
 func (cur *Profile) ConnectToFriend(pos int) {
-	go cur.connect(cur.getFriendNumber(pos))
+	go cur.connect(cur.Friends[cur.getFriendNumber(pos)])
 }
 
 func (cur *Profile) LoadFriendsRequests() int {

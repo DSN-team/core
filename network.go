@@ -9,7 +9,6 @@ import (
 	"math/big"
 	"net"
 	"runtime"
-	"time"
 )
 
 const (
@@ -75,20 +74,13 @@ func (cur *Profile) server(address string) {
 	}
 }
 
-func (cur *Profile) connect(pos int) {
-	log.Println("Connecting to friend:", cur.Friends[pos].Username)
-	con, err := net.Dial("tcp", cur.Friends[pos].Address)
-	for err != nil {
-		con, err = net.Dial("tcp", cur.Friends[pos].Address)
-		ErrHandler(err)
-		time.Sleep(1 * time.Second)
-	}
-
+func (cur *Profile) connect(user User) {
+	log.Println("Connecting to friend:", user.Username)
+	con, err := net.Dial("tcp", user.Address)
 	publicKey := MarshalPublicKey(&cur.PrivateKey.PublicKey)
 	_, err = con.Write(publicKey)
 	ErrHandler(err)
-
-	targetId := cur.Friends[pos].Id
+	targetId := user.Id
 	if _, ok := cur.Connections.Load(targetId); !ok {
 		log.Println("connection not found adding...")
 		cur.Connections.Store(targetId, con)
