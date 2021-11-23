@@ -2,38 +2,50 @@ package core
 
 import (
 	"crypto/ecdsa"
+	"gorm.io/gorm"
 	"sync"
 )
 
-type User struct {
-	Id        int
-	Username  string
-	Address   string
-	PublicKey *ecdsa.PublicKey
-	Ping      int
-	IsOnline  bool
-	IsFriend  bool
+type Profile struct {
+	gorm.Model
+	Username         string
+	Address          string
+	PrivateKeyString string
+	Password         string            `gorm:"-"`
+	PrivateKey       *ecdsa.PrivateKey `gorm:"-"`
+	FriendsIDXs      sync.Map          `gorm:"-"`
+	Connections      sync.Map          `gorm:"-"`
+	Friends          []Friend          `gorm:"-"`
+	Requests         []Request         `gorm:"-"`
+	DataStrOutput    []byte            `gorm:"-"`
+	DataStrInput     []byte            `gorm:"-"`
 }
 
-type Profile struct {
-	Password   string
-	ThisUser   User
-	PrivateKey *ecdsa.PrivateKey
-	//From ID to index
-	FriendsIDXs    sync.Map
-	Connections    sync.Map
-	Friends        []User
-	FriendRequests []FriendRequest
-	DataStrOutput  []byte
-	DataStrInput   []byte
+type User struct {
+	gorm.Model
+	profile         *Profile
+	Username        string
+	Address         string
+	PublicKeyString string
+	PublicKey       *ecdsa.PublicKey `gorm:"-"`
+	Ping            int              `gorm:"-"`
+	IsOnline        bool             `gorm:"-"`
+	IsFriend        bool             `gorm:"-"`
+}
+
+type Friend struct {
+	gorm.Model
+	user User
+}
+
+type Request struct {
+	gorm.Model
+	profile   Profile
+	User      User
+	direction uint
 }
 
 type ShowProfile struct {
-	Id       int
+	Id       uint
 	Username string
-}
-
-type FriendRequest struct {
-	PublicKey string
-	Username  string
 }

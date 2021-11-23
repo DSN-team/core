@@ -1,12 +1,12 @@
 package core
 
-var Profiles []ShowProfile
+var Profiles []Profile
 
 func LoadProfiles() int {
 	Profiles = getProfiles()
 	return len(Profiles)
 }
 
-func (cur *Profile) GetProfilePublicKey() string {
-	return EncPublicKey(MarshalPublicKey(&cur.PrivateKey.PublicKey))
+func (profile *Profile) GetProfilePublicKey() string {
+	return EncPublicKey(MarshalPublicKey(&profile.PrivateKey.PublicKey))
 }

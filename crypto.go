@@ -57,22 +57,22 @@ func UnmarshalPublicKey(data []byte) (key ecdsa.PublicKey) {
 	return
 }
 
-func (cur *Profile) encProfileKey() (data []byte) {
-	log.Println("Encrypting profile key")
-	passwordHash := sha512.Sum512_256([]byte(cur.Password))
+func (profile *Profile) encProfileKey() (data []byte) {
+	log.Println("Encrypting Profile key")
+	passwordHash := sha512.Sum512_256([]byte(profile.Password))
 	iv := passwordHash[:aes.BlockSize]
-	key, err := x509.MarshalECPrivateKey(cur.PrivateKey)
+	key, err := x509.MarshalECPrivateKey(profile.PrivateKey)
 	ErrHandler(err)
 	data = encryptCBC(key, iv, passwordHash[:aes.BlockSize])
 	return
 }
 
-func (cur *Profile) decProfileKey(encKey []byte, password string) bool {
-	log.Println("Decrypting profile key")
+func (profile *Profile) decProfileKey(encKey []byte, password string) bool {
+	log.Println("Decrypting Profile key")
 	passwordHash := sha512.Sum512_256([]byte(password))
 	iv := passwordHash[:aes.BlockSize]
 	data := decryptCBC(encKey, iv, passwordHash[:aes.BlockSize])
-	cur.PrivateKey, err = x509.ParseECPrivateKey(data)
+	profile.PrivateKey, err = x509.ParseECPrivateKey(data)
 
 	if ErrHandler(err) {
 		return false
@@ -81,9 +81,9 @@ func (cur *Profile) decProfileKey(encKey []byte, password string) bool {
 	}
 }
 
-func (cur *Profile) encryptAES(otherPublicKey *ecdsa.PublicKey, in []byte) (out []byte) {
+func (profile *Profile) encryptAES(otherPublicKey *ecdsa.PublicKey, in []byte) (out []byte) {
 	log.Println("Encrypting aes")
-	x, _ := otherPublicKey.Curve.ScalarMult(otherPublicKey.X, otherPublicKey.Y, cur.PrivateKey.D.Bytes())
+	x, _ := otherPublicKey.Curve.ScalarMult(otherPublicKey.X, otherPublicKey.Y, profile.PrivateKey.D.Bytes())
 	if x == nil {
 		return nil
 	}
@@ -98,7 +98,7 @@ func (cur *Profile) encryptAES(otherPublicKey *ecdsa.PublicKey, in []byte) (out 
 		return
 	}
 
-	ephPub := elliptic.Marshal(otherPublicKey.Curve, cur.PrivateKey.PublicKey.X, cur.PrivateKey.PublicKey.Y)
+	ephPub := elliptic.Marshal(otherPublicKey.Curve, profile.PrivateKey.PublicKey.X, profile.PrivateKey.PublicKey.Y)
 	out = make([]byte, 1+len(ephPub)+aesBlockLength)
 	out[0] = byte(len(ephPub))
 	copy(out[1:], ephPub)
@@ -112,7 +112,7 @@ func (cur *Profile) encryptAES(otherPublicKey *ecdsa.PublicKey, in []byte) (out 
 	return
 }
 
-func (cur *Profile) decryptAES(in []byte) (out []byte) {
+func (profile *Profile) decryptAES(in []byte) (out []byte) {
 	log.Println("Decrypting aes")
 	ephLen := int(in[0])
 	ephPub := in[1 : 1+ephLen]
@@ -127,7 +127,7 @@ func (cur *Profile) decryptAES(in []byte) (out []byte) {
 		return nil
 	}
 
-	x, _ = cur.PrivateKey.Curve.ScalarMult(x, y, cur.PrivateKey.D.Bytes())
+	x, _ = profile.PrivateKey.Curve.ScalarMult(x, y, profile.PrivateKey.D.Bytes())
 	if x == nil {
 		return nil
 	}
@@ -217,14 +217,14 @@ func addPadding(data []byte) []byte {
 	return data
 }
 
-func (cur *Profile) signData(data []byte) (*big.Int, *big.Int) {
+func (profile *Profile) signData(data []byte) (*big.Int, *big.Int) {
 	log.Println("Signing data")
-	r, s, err := ecdsa.Sign(rand.Reader, cur.PrivateKey, data)
+	r, s, err := ecdsa.Sign(rand.Reader, profile.PrivateKey, data)
 	ErrHandler(err)
 	return r, s
 }
 
-func (cur *Profile) verifyData(data []byte, r, s big.Int) (result bool) {
+func (profile *Profile) verifyData(data []byte, r, s big.Int) (result bool) {
 	log.Println("Verify data")
-	return ecdsa.Verify(&cur.PrivateKey.PublicKey, data, &r, &s)
+	return ecdsa.Verify(&profile.PrivateKey.PublicKey, data, &r, &s)
 }

@@ -2,32 +2,29 @@ package core
 
 import (
 	"fmt"
-	"log"
 )
 
 // UpdateUI size, id
-var UpdateUI = func(int, int) {}
+var UpdateUI = func(int, uint) {}
 
-func (cur *Profile) Register(username, password, address string) bool {
-	key := genProfileKey()
-	if key == nil {
+func (profile *Profile) Register(username, password, address string) bool {
+	profile.PrivateKey = genProfileKey()
+	if profile.PrivateKey == nil {
 		return false
 	}
-	cur.ThisUser.Username, cur.Password, cur.ThisUser.Address, cur.PrivateKey = username, password, address, key
-	log.Println(cur)
-	cur.ThisUser.Id = addProfile(cur)
+	profile.Username = username
+	profile.Password = password
+	profile.Address = address
+	profile.addProfile()
 	return true
 }
 
-func (cur *Profile) Login(password string, pos int) (result bool) {
-	var privateKeyEncBytes []byte
-	cur.ThisUser.Id = Profiles[pos].Id
-	cur.ThisUser.Username, cur.ThisUser.Address, privateKeyEncBytes = getProfileByID(Profiles[pos].Id)
-	fmt.Println("privateKeyEncBytes: ", privateKeyEncBytes)
-	if privateKeyEncBytes == nil {
+func (profile *Profile) Login(password string, pos int) (result bool) {
+	getProfile(Profiles[pos].ID, profile)
+	if profile == nil {
 		return false
 	}
-	result = cur.decProfileKey(privateKeyEncBytes, password)
+	result = profile.decProfileKey([]byte(profile.PrivateKeyString), password)
 	fmt.Println("Login status:", result)
 	return
 }
