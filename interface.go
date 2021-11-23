@@ -13,16 +13,16 @@ func (cur *Profile) Register(username, password, address string) bool {
 	if key == nil {
 		return false
 	}
-	cur.ThisUser.Username, cur.Password, cur.ThisUser.Address, cur.PrivateKey = username, password, address, key
+	cur.User.Username, cur.Password, cur.User.Address, cur.PrivateKey = username, password, address, key
 	log.Println(cur)
-	cur.ThisUser.Id = addProfile(cur)
+	cur.User.Id = addProfile(cur)
 	return true
 }
 
 func (cur *Profile) Login(password string, pos int) (result bool) {
 	var privateKeyEncBytes []byte
-	cur.ThisUser.Id = Profiles[pos].Id
-	cur.ThisUser.Username, cur.ThisUser.Address, privateKeyEncBytes = getProfileByID(Profiles[pos].Id)
+	cur.User.Id = Profiles[pos].Id
+	cur.User.Username, cur.User.Address, privateKeyEncBytes = getProfileByID(Profiles[pos].Id)
 	fmt.Println("privateKeyEncBytes: ", privateKeyEncBytes)
 	if privateKeyEncBytes == nil {
 		return false

@@ -229,7 +229,7 @@ func (cur *Profile) networkHandler(clientReader *bufio.Reader) {
 
 		fmt.Println("UserNameSize:", userNameSize, " FromUserNameSize:", fromUserNameSize, " Username:", username,
 			" Depth:", requestDepth, " BackTrace:", backTrace)
-		if cur.ThisUser.Username == string(username) {
+		if cur.User.Username == string(username) {
 			key := UnmarshalPublicKey(publicKey)
 			friendId = cur.addUser(User{Username: string(username), PublicKey: &key, IsFriend: false})
 			cur.addFriendRequest(friendId, 1)

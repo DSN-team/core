@@ -24,7 +24,7 @@ func (cur *Profile) WriteFindFriendRequest(user User) {
 
 	metadata := make([]byte, 0)
 	utils.SetBytes(&metadata, []byte(user.Username))
-	utils.SetBytes(&metadata, []byte(cur.ThisUser.Username))
+	utils.SetBytes(&metadata, []byte(cur.User.Username))
 
 	encryptedData := cur.encryptAES(user.PublicKey, metadata)
 
@@ -39,7 +39,7 @@ func (cur *Profile) WriteFindFriendRequest(user User) {
 
 	request := make([]byte, 0)
 	utils.SetUint16(&request, uint16(len(user.Username)))
-	utils.SetUint16(&request, uint16(len(cur.ThisUser.Username)))
+	utils.SetUint16(&request, uint16(len(cur.User.Username)))
 
 	cur.buildEncryptedPart(&request, profilePublicKey, encryptedData, encryptedSign)
 
