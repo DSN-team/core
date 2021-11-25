@@ -48,10 +48,12 @@ func GetByte(reader *bufio.Reader) byte {
 	state, err := reader.Peek(1)
 	if err != nil {
 		log.Println(err)
+		return 0
 	}
 	_, err = reader.Discard(1)
 	if err != nil {
 		log.Println(err)
+		return 0
 	}
 	return state[0]
 }

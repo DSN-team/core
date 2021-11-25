@@ -12,9 +12,9 @@ import (
 )
 
 const (
-	RequestData             = byte(0)
-	RequestDataVerification = byte(1)
-	RequestNetwork          = byte(2)
+	RequestData             = byte(1)
+	RequestDataVerification = byte(2)
+	RequestNetwork          = byte(3)
 )
 
 type NetworkInterface interface {
