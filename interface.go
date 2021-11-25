@@ -9,20 +9,24 @@ import (
 var UpdateUI = func(int, int) {}
 
 func (cur *Profile) Register(username, password, address string) bool {
-	key := genProfileKey()
-	if key == nil {
+	privateKey := genProfileKey()
+	if privateKey == nil {
 		return false
 	}
-	cur.User.Username, cur.Password, cur.User.Address, cur.PrivateKey = username, password, address, key
+	cur.Username, cur.Password, cur.Address, cur.PrivateKey = username, password, address, privateKey
 	log.Println(cur)
-	cur.User.Id = addProfile(cur)
+	addProfile(cur)
 	return true
 }
 
 func (cur *Profile) Login(password string, pos int) (result bool) {
 	var privateKeyEncBytes []byte
-	cur.User.Id = Profiles[pos].Id
-	cur.User.Username, cur.User.Address, privateKeyEncBytes = getProfileByID(Profiles[pos].Id)
+	profile := getProfileByID(Profiles[pos].ID)
+	cur.ID = profile.ID
+	cur.Username = profile.Username
+	cur.Address = profile.Address
+	cur.PrivateKeyString = profile.PrivateKeyString
+
 	fmt.Println("privateKeyEncBytes: ", privateKeyEncBytes)
 	if privateKeyEncBytes == nil {
 		return false

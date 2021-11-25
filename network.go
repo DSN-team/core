@@ -54,8 +54,9 @@ func (cur *Profile) server(address string) {
 		var clientId int
 
 		if profilePublicKeyString != clientPublicKeyString {
-			clientId = cur.getUserByPublicKey(clientPublicKeyString)
-			if clientId == -1 {
+			user := cur.getUserByPublicKey(clientPublicKeyString)
+			clientId = int(user.ID)
+			if clientId == 0 {
 				log.Println("not found in database")
 			}
 		}
@@ -80,7 +81,7 @@ func (cur *Profile) connect(user User) {
 	publicKey := MarshalPublicKey(&cur.PrivateKey.PublicKey)
 	_, err = con.Write(publicKey)
 	ErrHandler(err)
-	targetId := user.Id
+	targetId := int(user.ID)
 	if _, ok := cur.Connections.Load(targetId); !ok {
 		log.Println("connection not found adding...")
 		cur.Connections.Store(targetId, con)
@@ -200,7 +201,7 @@ func (cur *Profile) verificationHandler(clientId int, clientReader *bufio.Reader
 }
 
 func (cur *Profile) networkHandler(clientReader *bufio.Reader) {
-	var friendId int
+	var friend User
 	//metaData sizes
 	requestDepth := utils.GetUint8Reader(clientReader)
 	requestDegree := utils.GetUint8Reader(clientReader)
@@ -229,17 +230,18 @@ func (cur *Profile) networkHandler(clientReader *bufio.Reader) {
 
 		fmt.Println("UserNameSize:", userNameSize, " FromUserNameSize:", fromUserNameSize, " Username:", username,
 			" Depth:", requestDepth, " BackTrace:", backTrace)
-		if cur.User.Username == string(username) {
+		if cur.Username == string(username) {
 			key := UnmarshalPublicKey(publicKey)
-			friendId = cur.addUser(User{Username: string(username), PublicKey: &key, IsFriend: false})
-			cur.addFriendRequest(friendId, 1)
+			friend = User{Username: string(username), PublicKey: &key, IsFriend: false}
+			cur.addUser(&friend)
+			cur.addFriendRequest(friend.ID, 1)
 
 			fmt.Println("Friend request done, request from:", string(fromUsername), "Accept?")
 			cur.DataStrOutput = append([]byte{RequestNetwork}, fromUsername...)
 			cur.DataStrOutput = append(cur.DataStrOutput, publicKey...)
 			cur.DataStrOutput = append(cur.DataStrOutput, backTrace...)
 
-			UpdateUI(int(userNameSize), friendId)
+			UpdateUI(int(userNameSize), int(friend.ID))
 			return
 		}
 	}
@@ -249,6 +251,6 @@ func (cur *Profile) networkHandler(clientReader *bufio.Reader) {
 	if requestDepth > 0 {
 		encrypted := make([]byte, 0)
 		cur.buildEncryptedPart(&encrypted, publicKey, signData, metaDataEncrypted)
-		cur.writeFindFriendRequestSecondary(int(requestDepth), int(requestDegree), friendId, backTrace, encrypted)
+		cur.writeFindFriendRequestSecondary(int(requestDepth), int(requestDegree), int(friend.ID), backTrace, encrypted)
 	}
 }

@@ -24,7 +24,7 @@ func (cur *Profile) WriteFindFriendRequest(user User) {
 
 	metadata := make([]byte, 0)
 	utils.SetBytes(&metadata, []byte(user.Username))
-	utils.SetBytes(&metadata, []byte(cur.User.Username))
+	utils.SetBytes(&metadata, []byte(cur.Username))
 
 	encryptedData := cur.encryptAES(user.PublicKey, metadata)
 
@@ -39,7 +39,7 @@ func (cur *Profile) WriteFindFriendRequest(user User) {
 
 	request := make([]byte, 0)
 	utils.SetUint16(&request, uint16(len(user.Username)))
-	utils.SetUint16(&request, uint16(len(cur.User.Username)))
+	utils.SetUint16(&request, uint16(len(cur.Username)))
 
 	cur.buildEncryptedPart(&request, profilePublicKey, encryptedData, encryptedSign)
 
@@ -63,7 +63,7 @@ func (cur *Profile) writeFindFriendRequestSecondary(depth, degree, fromID int, p
 			break
 		}
 		sendTo := cur.Friends[i]
-		if sendTo.Id == fromID {
+		if int(sendTo.ID) == fromID {
 			continue
 		}
 		go func(sendTo User) {
@@ -73,11 +73,11 @@ func (cur *Profile) writeFindFriendRequestSecondary(depth, degree, fromID int, p
 			utils.SetUint8(&request, uint8(degree))
 			newTrace := make([]byte, 0)
 			utils.SetBytes(&newTrace, previousTrace)
-			utils.SetUint8(&newTrace, uint8(sendTo.Id))
+			utils.SetUint8(&newTrace, uint8(sendTo.ID))
 			utils.SetUint8(&request, uint8(len(newTrace))) //BackTraceSize
 			utils.SetBytes(&request, newTrace)             //BackTrace
 			utils.SetBytes(&request, encrypted)
-			cur.WriteRequest(sendTo.Id, request)
+			cur.WriteRequest(int(sendTo.ID), request)
 		}(sendTo)
 	}
 }
@@ -90,26 +90,26 @@ func (cur *Profile) writeFindFriendRequestDirect(depth, degree int, sendTo User,
 	utils.SetUint8(&request, uint8(degree))
 	newTrace := make([]byte, 0)
 	utils.SetBytes(&newTrace, previousTrace)
-	utils.SetUint8(&newTrace, uint8(sendTo.Id))
+	utils.SetUint8(&newTrace, uint8(sendTo.ID))
 	utils.SetUint8(&request, uint8(len(newTrace))) //BackTraceSize
 	utils.SetBytes(&request, newTrace)             //BackTrace
 	utils.SetBytes(&request, encrypted)
 	cur.connect(sendTo)
-	cur.WriteRequest(sendTo.Id, request)
+	cur.WriteRequest(int(sendTo.ID), request)
 }
 
 func (cur *Profile) AddFriend(username, address, publicKey string) {
 	log.Println("Add friend, username:", username, "address:", address, "publicKey:", publicKey)
-	decryptedPublicKey := UnmarshalPublicKey(DecPublicKey(publicKey))
-	id := cur.searchUser(username)
-	user := User{Username: username, Address: address, PublicKey: &decryptedPublicKey, IsFriend: false}
-	if id == -1 {
-		user.Id = cur.addUser(user)
-		//cur.Friends = append(cur.Friends, user)
-		//cur.FriendsIDXs.Store(len(cur.Friends)-1, cur.Friends[len(cur.Friends)-1])
+	user := cur.searchUser(username)
+	if user.ID == 0 {
+		decryptedPublicKey := UnmarshalPublicKey(DecPublicKey(publicKey))
+		user = User{Username: username, Address: address, PublicKey: &decryptedPublicKey, IsFriend: false}
+		cur.addUser(&user)
+		cur.Friends = append(cur.Friends, user)
+		cur.FriendsIDXs.Store(len(cur.Friends)-1, cur.Friends[len(cur.Friends)-1])
 	}
 	//TODO: send request to target
-	cur.addFriendRequest(user.Id, 0)
+	cur.addFriendRequest(user.ID, 0)
 	go cur.WriteFindFriendRequest(user)
 	//else {
 	//	cur.editUser(id, user)
@@ -120,13 +120,12 @@ func (cur *Profile) LoadFriends() int {
 	log.Println("Loading Friends from db")
 	cur.Friends = cur.getFriends()
 	for i := 0; i < len(cur.Friends); i++ {
-		cur.FriendsIDXs.Store(cur.Friends[i].Id, i)
+		cur.FriendsIDXs.Store(cur.Friends[i].ID, i)
 	}
 	return len(cur.Friends)
 }
 
 func (cur *Profile) ConnectToFriends() {
-
 	go func() {
 		for i := 0; i < len(cur.Friends); i++ {
 			go cur.connect(cur.Friends[i])

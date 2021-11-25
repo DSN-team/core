@@ -14,8 +14,8 @@ func InitTest() {
 }
 
 func RunProfile(nameNumber string) *core.Profile {
-	username := "Node:" + nameNumber
-	password := "Pass:" + nameNumber
+	username := "Node" + nameNumber
+	password := "Pass" + nameNumber
 	println("node:" + nameNumber)
 	println("username:" + username)
 	println("password:" + password)
@@ -32,7 +32,7 @@ func RunProfile(nameNumber string) *core.Profile {
 }
 
 func CreateNetwork(from, to *core.Profile) {
-	from.AddFriend(to.User.Username, to.User.Address, to.GetProfilePublicKey())
+	from.AddFriend(to.Username, to.Address, to.GetProfilePublicKey())
 }
 
 func StartConnection(from *core.Profile) {
@@ -47,15 +47,15 @@ func StartConnection(from *core.Profile) {
 }
 
 func ProfileToString(user *core.Profile) (output string) {
-	output += "Username:" + user.User.Username
+	output += "Username:" + user.Username
 	output += "Password:" + user.Password
-	output += "Address:" + user.User.Address
+	output += "Address:" + user.Address
 	return output
 }
 func ConnectionsToString(profile *core.Profile) (output string) {
 	for i := 0; i < len(profile.Friends); i++ {
-		_, temp := profile.Connections.Load(profile.Friends[i].Id)
-		output += "pos:" + strconv.FormatInt(int64(profile.Friends[i].Id), 10) + ":" + strconv.FormatBool(temp) + "\n"
+		_, temp := profile.Connections.Load(profile.Friends[i].ID)
+		output += "pos:" + strconv.FormatInt(int64(profile.Friends[i].ID), 10) + ":" + strconv.FormatBool(temp) + "\n"
 	}
 	return output
 }

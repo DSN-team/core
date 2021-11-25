@@ -8,45 +8,44 @@ import (
 
 type User struct {
 	gorm.Model
-	//ID             uint   `gorm:"primaryKey; not null"`
-	Id           int
-	Username     string
-	Address      string
-	PublicKey    *ecdsa.PublicKey `gorm:"-"`
-	PublicKeyStr string
-	Ping         int
-	IsOnline     bool
-	IsFriend     bool
+	ProfileID       uint
+	Username        string
+	Address         string
+	PublicKeyString string
+	IsFriend        bool
+
+	PublicKey *ecdsa.PublicKey `gorm:"-"`
+	Ping      int              `gorm:"-"`
+	IsOnline  bool             `gorm:"-"`
+
+	UserRequest []UserRequest
 }
 
 type Profile struct {
 	gorm.Model
-	ID       uint `gorm:"primaryKey; not null"`
-	Password string
-	//Username string
-	Address    string
-	User       User              `gorm:"foreignKey:ID"`
-	PrivateKey *ecdsa.PrivateKey `gorm:"-"`
-	//From Id to index
-	FriendsIDXs    sync.Map        `gorm:"-"`
-	Connections    sync.Map        `gorm:"-"`
-	Friends        []User          `gorm:"-"`
-	FriendRequests []FriendRequest `gorm:"-"`
-	DataStrOutput  []byte          `gorm:"-"`
-	DataStrInput   []byte          `gorm:"-"`
-}
-type NameProf struct {
-	User ShowProfile `gorm:"foreignKey:Id"`
+	Username         string
+	Address          string
+	Password         string
+	PrivateKeyString string
+
+	Friends        []User
+	FriendRequests []UserRequest
+
+	FriendsIDXs   sync.Map          `gorm:"-"`
+	Connections   sync.Map          `gorm:"-"`
+	DataStrOutput []byte            `gorm:"-"`
+	DataStrInput  []byte            `gorm:"-"`
+	PrivateKey    *ecdsa.PrivateKey `gorm:"-"`
 }
 
 type ShowProfile struct {
-	Id       int
+	ID       uint
 	Username string
 }
 
-type FriendRequest struct {
+type UserRequest struct {
 	gorm.Model
-	ID        uint `gorm:"primaryKey; not null"`
-	PublicKey string
-	Username  string
+	ProfileID uint
+	UserID    uint
+	Direction int
 }
