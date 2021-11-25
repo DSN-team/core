@@ -102,18 +102,15 @@ func (cur *Profile) AddFriend(username, address, publicKey string) {
 	log.Println("Add friend, username:", username, "address:", address, "publicKey:", publicKey)
 	user := cur.searchUser(username)
 	if user.ID == 0 {
-		decryptedPublicKey := UnmarshalPublicKey(DecPublicKey(publicKey))
-		user = User{Username: username, Address: address, PublicKey: &decryptedPublicKey, IsFriend: false}
+		user = User{ProfileID: cur.ID, Username: username, Address: address, PublicKeyString: publicKey, IsFriend: false}
 		cur.addUser(&user)
 		cur.Friends = append(cur.Friends, user)
 		cur.FriendsIDXs.Store(len(cur.Friends)-1, cur.Friends[len(cur.Friends)-1])
 	}
-	//TODO: send request to target
+	decryptedPublicKey := UnmarshalPublicKey(DecodeKey(user.PublicKeyString))
+	user.PublicKey = &decryptedPublicKey
 	cur.addFriendRequest(user.ID, 0)
 	go cur.WriteFindFriendRequest(user)
-	//else {
-	//	cur.editUser(id, user)
-	//}
 }
 
 func (cur *Profile) LoadFriends() int {

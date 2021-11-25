@@ -25,27 +25,27 @@ func genProfileKey() (key *ecdsa.PrivateKey) {
 	return
 }
 
-func EncPublicKey(key []byte) (keyString string) {
-	log.Println("encoding public key")
+func EncodeKey(key []byte) (keyString string) {
+	log.Println("encoding key")
 	keyString = base64.StdEncoding.EncodeToString(key)
-	log.Println("encoded public key", keyString)
+	//log.Println("encoded key", keyString)
 	return
 }
 
-func DecPublicKey(data string) (publicKeyBytes []byte) {
-	println("decoding public key")
-	publicKeyBytes, err = base64.StdEncoding.DecodeString(data)
+func DecodeKey(data string) (keyBytes []byte) {
+	println("decoding key")
+	keyBytes, err = base64.StdEncoding.DecodeString(data)
 	if ErrHandler(err) {
 		return nil
 	}
-	log.Println("decode public key", publicKeyBytes)
+	//log.Println("decode key", keyBytes)
 	return
 }
 
 func MarshalPublicKey(key *ecdsa.PublicKey) (data []byte) {
 	println("marshal Public Key", key)
 	data = elliptic.Marshal(key, key.X, key.Y)
-	log.Println("marshalled Public Key", data)
+	//log.Println("marshalled Public Key", data)
 	return
 }
 
@@ -53,25 +53,25 @@ func UnmarshalPublicKey(data []byte) (key ecdsa.PublicKey) {
 	println("unmarshal Public Key", data)
 	x, y := elliptic.Unmarshal(Curve(), data)
 	key = ecdsa.PublicKey{Curve: Curve(), X: x, Y: y}
-	log.Println("unmarshalled public key", key)
+	//log.Println("unmarshalled public key", key)
 	return
 }
 
-func (cur *Profile) encProfileKey() (data []byte) {
+func (cur *Profile) encProfileKey() {
 	log.Println("Encrypting profile key")
 	passwordHash := sha512.Sum512_256([]byte(cur.Password))
 	iv := passwordHash[:aes.BlockSize]
 	key, err := x509.MarshalECPrivateKey(cur.PrivateKey)
 	ErrHandler(err)
-	data = encryptCBC(key, iv, passwordHash[:aes.BlockSize])
+	cur.PrivateKeyString = EncodeKey(encryptCBC(key, iv, passwordHash[:aes.BlockSize]))
 	return
 }
 
-func (cur *Profile) decProfileKey(encKey []byte, password string) bool {
+func (cur *Profile) decProfileKey(encKey string, password string) bool {
 	log.Println("Decrypting profile key")
 	passwordHash := sha512.Sum512_256([]byte(password))
 	iv := passwordHash[:aes.BlockSize]
-	data := decryptCBC(encKey, iv, passwordHash[:aes.BlockSize])
+	data := decryptCBC(DecodeKey(encKey), iv, passwordHash[:aes.BlockSize])
 	cur.PrivateKey, err = x509.ParseECPrivateKey(data)
 
 	if ErrHandler(err) {
@@ -148,15 +148,15 @@ func (cur *Profile) decryptAES(in []byte) (out []byte) {
 func encryptCBC(data, iv, key []byte) []byte {
 	log.Println("Encrypting cbc")
 	paddedData := addPadding(data)
-	log.Println("padded data: ", paddedData)
-	log.Println("data len:", len(paddedData))
+	//log.Println("padded data: ", paddedData)
+	//log.Println("data len:", len(paddedData))
 
 	aesCrypt, err := aes.NewCipher(key)
 	if ErrHandler(err) {
 		return nil
 	}
 
-	log.Println("block size:", aesCrypt.BlockSize())
+	//log.Println("block size:", aesCrypt.BlockSize())
 
 	encryptedData := make([]byte, len(paddedData))
 	aesCBC := cipher.NewCBCEncrypter(aesCrypt, iv)
@@ -167,7 +167,7 @@ func encryptCBC(data, iv, key []byte) []byte {
 
 func decryptCBC(data, iv, key []byte) (decryptedData []byte) {
 	log.Println("Decrypting cbc")
-	log.Println("data length:", len(data), "data:", "iv:", iv, "key:", key)
+	//log.Println("data length:", len(data), "data:", "iv:", iv, "key:", key)
 	aesCrypt, err := aes.NewCipher(key)
 	if ErrHandler(err) {
 		return
@@ -176,9 +176,9 @@ func decryptCBC(data, iv, key []byte) (decryptedData []byte) {
 	decryptedPaddedData := make([]byte, len(data))
 	aesCBC := cipher.NewCBCDecrypter(aesCrypt, iv)
 	aesCBC.CryptBlocks(decryptedPaddedData, data)
-	log.Println("decrypted padded data len:", len(decryptedPaddedData), "decrypted padded data:", decryptedPaddedData)
+	//log.Println("decrypted padded data len:", len(decryptedPaddedData), "decrypted padded data:", decryptedPaddedData)
 	decryptedData = removePadding(decryptedPaddedData)
-	log.Println("decrypted de padded data:", decryptedData)
+	//log.Println("decrypted de padded data:", decryptedData)
 	return
 }
 
@@ -191,13 +191,13 @@ func makeRandom(length int) ([]byte, error) {
 
 func removePadding(data []byte) []byte {
 	log.Println("Removing padding")
-	log.Println("padded data len:", len(data))
+	//log.Println("padded data len:", len(data))
 	if len(data) == 0 {
 		return nil
 	}
 	l := int(data[len(data)-1])
-	log.Println("len of data:", l)
-	log.Println("real len of data:", len(data))
+	//log.Println("len of data:", l)
+	//log.Println("real len of data:", len(data))
 	if l > len(data) {
 		return nil
 	} else {
@@ -208,9 +208,9 @@ func removePadding(data []byte) []byte {
 // addPadding adds padding to a block of data
 func addPadding(data []byte) []byte {
 	log.Println("Adding padding")
-	log.Println("data len:", len(data))
+	//log.Println("data len:", len(data))
 	l := aesBlockLength - len(data)%aesBlockLength
-	log.Println("additional len to pad data", l)
+	//log.Println("additional len to pad data", l)
 	padding := make([]byte, l)
 	padding[l-1] = byte(l)
 	data = append(data, padding...)

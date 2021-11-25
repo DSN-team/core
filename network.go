@@ -48,8 +48,8 @@ func (cur *Profile) server(address string) {
 
 		log.Println("reader size:", clientReader.Size())
 
-		clientPublicKeyString := EncPublicKey(clientKey)
-		profilePublicKeyString := EncPublicKey(profilePublicKey)
+		clientPublicKeyString := EncodeKey(clientKey)
+		profilePublicKeyString := EncodeKey(profilePublicKey)
 
 		var clientId int
 
@@ -78,7 +78,7 @@ func (cur *Profile) server(address string) {
 func (cur *Profile) connect(user User) {
 	log.Println("Connecting to friend:", user.Username)
 	con, err := net.Dial("tcp", user.Address)
-	publicKey := MarshalPublicKey(&cur.PrivateKey.PublicKey)
+	publicKey := DecodeKey(cur.GetProfilePublicKey())
 	_, err = con.Write(publicKey)
 	ErrHandler(err)
 	targetId := int(user.ID)

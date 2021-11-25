@@ -8,5 +8,5 @@ func LoadProfiles() int {
 }
 
 func (cur *Profile) GetProfilePublicKey() string {
-	return EncPublicKey(MarshalPublicKey(&cur.PrivateKey.PublicKey))
+	return EncodeKey(MarshalPublicKey(&cur.PrivateKey.PublicKey))
 }

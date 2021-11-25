@@ -14,7 +14,7 @@ func StartDB() {
 	log.Println("Loading database...")
 	db, err = gorm.Open(sqlite.Open("data.db"), &gorm.Config{})
 	ErrHandler(err)
-	err := db.AutoMigrate(&User{}, &Profile{})
+	err := db.AutoMigrate(&User{}, &Profile{}, &UserRequest{})
 	ErrHandler(err)
 }
 
@@ -23,17 +23,15 @@ func (cur *Profile) addFriendRequest(userID uint, direction int) {
 	db.Create(&UserRequest{ProfileID: cur.ID, UserID: userID, Direction: direction})
 }
 
-func (cur *Profile) GetFriendRequests() []UserRequest {
-	var requests []UserRequest
-	res := db.Find(&requests)
-	ErrHandler(res.Error)
+func (cur *Profile) GetFriendRequests() (requests []UserRequest) {
+	db.Where("profile_id", cur.ID).Find(&requests)
 	return requests
 }
 
 func (cur *Profile) searchFriendRequest(id uint) bool {
-	var requests []UserRequest
-	db.Where(UserRequest{ProfileID: cur.ID, UserID: id}, "friendRequests").Find(&requests)
-	if requests == nil {
+	var request UserRequest
+	db.Where(UserRequest{ProfileID: cur.ID, UserID: id}, "friendRequests").Find(&request)
+	if request.ID == 0 {
 		return false
 	} else {
 		return true
@@ -41,7 +39,7 @@ func (cur *Profile) searchFriendRequest(id uint) bool {
 }
 
 func (cur *Profile) searchUser(username string) (user User) {
-	db.Where(&User{Username: username}, "username").First(&user)
+	db.Where(&User{ProfileID: cur.ID, Username: username}).First(&user)
 	return
 }
 
@@ -52,9 +50,9 @@ func (cur *Profile) addUser(user *User) {
 	return
 }
 
-func (cur *Profile) editUser(id int, user User) {
+func (cur *Profile) editUser(id int, user *User) {
 	log.Println("Editing user", id)
-	//db.Exec("UPDATE users SET address = $1, public_key = $2 WHERE id = $0 and profile_id = $3", id, user.Address, EncPublicKey(MarshalPublicKey(user.PublicKey)), cur.User.Id)
+	//db.Exec("UPDATE users SET address = $1, public_key = $2 WHERE id = $0 and profile_id = $3", id, user.Address, EncodeKey(MarshalPublicKey(user.PublicKey)), cur.User.Id)
 	db.First(&user, id)
 }
 

@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const baseAddress = "127.0.0.1:300"
+
 func InitTest() {
 	//Sleep between retrying
 	time.Sleep(250 * time.Millisecond)
@@ -22,12 +24,12 @@ func RunProfile(nameNumber string) *core.Profile {
 	pos := core.UsernamePos(username)
 	singleProfile := &core.Profile{}
 	if pos == -1 {
-		singleProfile.Register(username, password, "127.0.0.1:3"+nameNumber) //already logged in after register
+		singleProfile.Register(username, password, baseAddress+nameNumber) //already logged in after register
 	} else {
 		singleProfile.Login(password, pos)
 		singleProfile.LoadFriends()
 	}
-	singleProfile.RunServer("127.0.0.1:3" + nameNumber)
+	singleProfile.RunServer(baseAddress + nameNumber)
 	return singleProfile
 }
 

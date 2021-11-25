@@ -14,24 +14,17 @@ func (cur *Profile) Register(username, password, address string) bool {
 		return false
 	}
 	cur.Username, cur.Password, cur.Address, cur.PrivateKey = username, password, address, privateKey
+	cur.encProfileKey()
 	log.Println(cur)
 	addProfile(cur)
 	return true
 }
 
 func (cur *Profile) Login(password string, pos int) (result bool) {
-	var privateKeyEncBytes []byte
 	profile := getProfileByID(Profiles[pos].ID)
-	cur.ID = profile.ID
-	cur.Username = profile.Username
-	cur.Address = profile.Address
-	cur.PrivateKeyString = profile.PrivateKeyString
-
-	fmt.Println("privateKeyEncBytes: ", privateKeyEncBytes)
-	if privateKeyEncBytes == nil {
-		return false
-	}
-	result = cur.decProfileKey(privateKeyEncBytes, password)
+	cur.Password = password
+	cur.ID, cur.Username, cur.Address, cur.PrivateKeyString = profile.ID, profile.Username, profile.Address, profile.PrivateKeyString
+	result = cur.decProfileKey(cur.PrivateKeyString, password)
 	fmt.Println("Login status:", result)
 	return
 }
