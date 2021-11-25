@@ -68,7 +68,7 @@ func (cur *Profile) writeFindFriendRequestSecondary(depth, degree, fromID int, p
 		}
 		go func(sendTo User) {
 			request := make([]byte, 0)
-			utils.SetUint8(&request, RequestNetwork)
+			utils.SetUint8(&request, utils.RequestNetwork)
 			utils.SetUint8(&request, uint8(depth))
 			utils.SetUint8(&request, uint8(degree))
 			newTrace := make([]byte, 0)
@@ -85,7 +85,7 @@ func (cur *Profile) writeFindFriendRequestSecondary(depth, degree, fromID int, p
 func (cur *Profile) writeFindFriendRequestDirect(depth, degree int, sendTo User, previousTrace []byte, encrypted []byte) {
 	log.Print("Write find friend request direct, depth:", depth, "degree:", degree)
 	request := make([]byte, 0)
-	utils.SetUint8(&request, RequestNetwork)
+	utils.SetUint8(&request, utils.RequestNetwork)
 	utils.SetUint8(&request, uint8(depth))
 	utils.SetUint8(&request, uint8(degree))
 	newTrace := make([]byte, 0)

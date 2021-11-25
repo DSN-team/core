@@ -8,14 +8,8 @@ import (
 	"log"
 	"math/big"
 	"net"
+	"os"
 	"runtime"
-)
-
-const (
-	RequestData             = byte(1)
-	RequestDataVerification = byte(2)
-	RequestNetwork          = byte(3)
-	RequestError            = byte(0xFF)
 )
 
 type NetworkInterface interface {
@@ -149,25 +143,25 @@ func (cur *Profile) handleRequest(clientId int, con net.Conn) {
 		requestType := utils.GetByte(clientReader)
 		fmt.Println("Request type:", requestType)
 		switch requestType {
-		case RequestData:
+		case utils.RequestData:
 			{
 				cur.dataHandler(clientId, clientReader)
 				break
 			}
-		case RequestNetwork:
+		case utils.RequestNetwork:
 			{
 				cur.networkHandler(clientReader)
 				break
 			}
-		case RequestDataVerification:
+		case utils.RequestDataVerification:
 			{
 				cur.verificationHandler(clientId, clientReader)
 				break
 			}
-		case RequestError:
+		case utils.RequestError:
 			{
 				fmt.Println("Request error")
-				break
+				os.Exit(-1)
 			}
 		}
 	}
@@ -183,7 +177,7 @@ func (cur *Profile) dataHandler(clientId int, clientReader *bufio.Reader) {
 	log.Println("Count:", count)
 	encData, err := utils.GetBytes(clientReader, count)
 	cur.DataStrOutput = cur.decryptAES(encData)
-	cur.DataStrOutput = append([]byte{RequestData}, cur.DataStrOutput...)
+	cur.DataStrOutput = append([]byte{utils.RequestData}, cur.DataStrOutput...)
 	switch err {
 	case nil:
 		log.Println(cur.DataStrOutput)
@@ -242,7 +236,7 @@ func (cur *Profile) networkHandler(clientReader *bufio.Reader) {
 			cur.addFriendRequest(friend.ID, 1)
 
 			fmt.Println("Friend request done, request from:", string(fromUsername), "Accept?")
-			cur.DataStrOutput = append([]byte{RequestNetwork}, fromUsername...)
+			cur.DataStrOutput = append([]byte{utils.RequestNetwork}, fromUsername...)
 			cur.DataStrOutput = append(cur.DataStrOutput, publicKey...)
 			cur.DataStrOutput = append(cur.DataStrOutput, backTrace...)
 
