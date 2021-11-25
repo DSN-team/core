@@ -127,6 +127,7 @@ func (cur *Profile) LoadFriends() int {
 func (cur *Profile) ConnectToFriends() {
 	go func() {
 		for i := 0; i < len(cur.Friends); i++ {
+			log.Println("Connecting to friend:", cur.Friends[i].Username, "number:", i)
 			go cur.connect(cur.Friends[i])
 		}
 		for {

@@ -76,7 +76,6 @@ func (cur *Profile) server(address string) {
 }
 
 func (cur *Profile) connect(user User) {
-	log.Println("Connecting to friend:", user.Username)
 
 	targetId := int(user.ID)
 	if _, ok := cur.Connections.Load(targetId); !ok {
@@ -89,7 +88,6 @@ func (cur *Profile) connect(user User) {
 		go cur.handleRequest(targetId, con)
 		log.Println("connected to target", targetId)
 	} else {
-		log.Println("connection already connected")
 		return
 	}
 }
