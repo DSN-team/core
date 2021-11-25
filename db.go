@@ -58,7 +58,7 @@ func (cur *Profile) editUser(id int, user *User) {
 
 func (cur *Profile) getFriends() []User {
 	var users []User
-	db.Where("is_friend = true").Find(&users)
+	db.Where(&User{ProfileID: cur.ID, IsFriend: true}).Find(&users)
 	return users
 }
 

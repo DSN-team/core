@@ -97,7 +97,7 @@ func (cur *Profile) RunServer(address string) {
 	go cur.server(address)
 }
 
-func (cur *Profile) BuildDataRequest(requestType byte, size uint64, data []byte, userId int) (output []byte) {
+func (cur *Profile) BuildDataRequest(requestType byte, size uint64, data []byte, userId uint) (output []byte) {
 	log.Println("Building data request, request type: ", requestType, "size:",
 		size, "data:", data, "user id:", userId)
 	request := make([]byte, 0)

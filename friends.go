@@ -105,7 +105,7 @@ func (cur *Profile) AddFriend(username, address, publicKey string) {
 		user = User{ProfileID: cur.ID, Username: username, Address: address, PublicKeyString: publicKey, IsFriend: false}
 		cur.addUser(&user)
 		cur.Friends = append(cur.Friends, user)
-		cur.FriendsIDXs.Store(len(cur.Friends)-1, cur.Friends[len(cur.Friends)-1])
+		cur.FriendsIDXs.Store(user.ID, len(cur.Friends)-1)
 	}
 	decryptedPublicKey := UnmarshalPublicKey(DecodeKey(user.PublicKeyString))
 	user.PublicKey = &decryptedPublicKey
@@ -117,6 +117,8 @@ func (cur *Profile) LoadFriends() int {
 	log.Println("Loading Friends from db")
 	cur.Friends = cur.getFriends()
 	for i := 0; i < len(cur.Friends); i++ {
+		publicKey := UnmarshalPublicKey(DecodeKey(cur.Friends[i].PublicKeyString))
+		cur.Friends[i].PublicKey = &publicKey
 		cur.FriendsIDXs.Store(cur.Friends[i].ID, i)
 	}
 	return len(cur.Friends)
