@@ -25,9 +25,9 @@ func main() {
 	connectNodes(profiles, 3, 4)
 	connectNodes(profiles, 5, 4)
 	connectNodes(profiles, 6, 7)
-	for i := 0; i < len(profiles); i++ {
-		go utils.StartConnection(profiles[i])
-	}
+	//for i := 0; i < len(profiles); i++ {
+	//	go utils.StartConnection(profiles[i])
+	//}
 
 	//Hold main thread
 	for {

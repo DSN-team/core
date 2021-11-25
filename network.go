@@ -35,7 +35,7 @@ func (cur *Profile) server(address string) {
 		ErrHandler(err)
 		log.Println("accepted server client")
 
-		profilePublicKey := MarshalPublicKey(&cur.PrivateKey.PublicKey)
+		profilePublicKey := DecodeKey(cur.GetProfilePublicKey())
 
 		clientReader := bufio.NewReader(con)
 		publicKeyLen := len(profilePublicKey)
