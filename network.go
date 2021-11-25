@@ -77,13 +77,14 @@ func (cur *Profile) server(address string) {
 
 func (cur *Profile) connect(user User) {
 	log.Println("Connecting to friend:", user.Username)
-	con, err := net.Dial("tcp", user.Address)
-	publicKey := DecodeKey(cur.GetProfilePublicKey())
-	_, err = con.Write(publicKey)
-	ErrHandler(err)
+
 	targetId := int(user.ID)
 	if _, ok := cur.Connections.Load(targetId); !ok {
 		log.Println("connection not found adding...")
+		con, err := net.Dial("tcp", user.Address)
+		publicKey := DecodeKey(cur.GetProfilePublicKey())
+		_, err = con.Write(publicKey)
+		ErrHandler(err)
 		cur.Connections.Store(targetId, con)
 		go cur.handleRequest(targetId, con)
 		log.Println("connected to target", targetId)
