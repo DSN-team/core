@@ -3,6 +3,7 @@ package utils
 import (
 	"bufio"
 	"encoding/binary"
+	"github.com/DSN-team/core"
 	"log"
 )
 
@@ -48,12 +49,12 @@ func GetByte(reader *bufio.Reader) byte {
 	state, err := reader.Peek(1)
 	if err != nil {
 		log.Println(err)
-		return 0
+		return core.RequestError
 	}
 	_, err = reader.Discard(1)
 	if err != nil {
 		log.Println(err)
-		return 0
+		return core.RequestError
 	}
 	return state[0]
 }

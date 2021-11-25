@@ -15,6 +15,7 @@ const (
 	RequestData             = byte(1)
 	RequestDataVerification = byte(2)
 	RequestNetwork          = byte(3)
+	RequestError            = byte(0xFF)
 )
 
 type NetworkInterface interface {
@@ -161,6 +162,11 @@ func (cur *Profile) handleRequest(clientId int, con net.Conn) {
 		case RequestDataVerification:
 			{
 				cur.verificationHandler(clientId, clientReader)
+				break
+			}
+		case RequestError:
+			{
+				fmt.Println("Request error")
 				break
 			}
 		}
