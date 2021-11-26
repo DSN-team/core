@@ -16,7 +16,9 @@ func main() {
 	utils.CreateNetwork(profile0, profile1)
 	utils.CreateNetwork(profile1, profile0)
 	go utils.StartConnection(profile0)
+	time.Sleep(25 * time.Millisecond)
 	go utils.StartConnection(profile1)
+	time.Sleep(25 * time.Millisecond)
 
 	delayedCall(profile0, profile1, "test")
 

@@ -1,11 +1,29 @@
 package core
 
 import (
+	"bytes"
+	"encoding/gob"
 	"github.com/DSN-team/core/utils"
 	"log"
+	"math/big"
 	"sort"
 	"time"
 )
+
+type FriendRequestEncryptMeta struct {
+	username, fromUsername string
+}
+type FriendRequestEncryptSign struct {
+	profilePublicKey []byte
+	signR, signS     big.Int
+}
+type FriendRequestStr struct {
+	Depth, Degree int
+	BackTrace     []byte
+
+	metadata []byte
+	sign     []byte
+}
 
 func (cur *Profile) sortFriends() {
 	sort.Slice(cur.Friends, func(i, j int) bool {
@@ -20,29 +38,51 @@ func (cur *Profile) getFriendNumber(id int) int {
 
 func (cur *Profile) WriteFindFriendRequest(user User) {
 	log.Println("Write friend request, friend:", user.Username)
+	var buffer bytes.Buffer
+	var buffer2 bytes.Buffer
+
+	var request FriendRequestStr
+	var requestEncryptMeta FriendRequestEncryptMeta
+	var requestEncryptSign FriendRequestEncryptSign
+
+	enc := gob.NewEncoder(&buffer)
+	enc2 := gob.NewEncoder(&buffer2)
+
 	profilePublicKey := MarshalPublicKey(&cur.PrivateKey.PublicKey)
 
-	metadata := make([]byte, 0)
-	utils.SetBytes(&metadata, []byte(user.Username))
-	utils.SetBytes(&metadata, []byte(cur.Username))
+	requestEncryptMeta.username = user.Username
+	requestEncryptMeta.fromUsername = cur.Username
+	err = enc.Encode(requestEncryptMeta)
+	ErrHandler(err)
+	//metadata := make([]byte, 0)
+	//utils.SetBytes(&metadata, []byte(user.Username))
+	//utils.SetBytes(&metadata, []byte(cur.Username))
+	//encryptedData := cur.encryptAES(user.PublicKey, metadata)
+	encryptedData := cur.encryptAES(user.PublicKey, buffer.Bytes())
 
-	encryptedData := cur.encryptAES(user.PublicKey, metadata)
-
-	sign := make([]byte, 0)
+	//sign := make([]byte, 0)
 	r, s := cur.signData(encryptedData)
+	requestEncryptSign.profilePublicKey = profilePublicKey
+	requestEncryptSign.signR = *r
+	requestEncryptSign.signS = *s
 
-	utils.SetBytes(&sign, profilePublicKey)
-	utils.SetBytes(&sign, r.Bytes())
-	utils.SetBytes(&sign, s.Bytes())
+	err = enc2.Encode(requestEncryptSign)
+	ErrHandler(err)
+	//utils.SetBytes(&sign, profilePublicKey)
+	//utils.SetBytes(&sign, r.Bytes())
+	//utils.SetBytes(&sign, s.Bytes())
 
-	encryptedSign := cur.encryptAES(user.PublicKey, sign)
+	encryptedSign := cur.encryptAES(user.PublicKey, buffer2.Bytes())
+	request.metadata = encryptedData
+	request.sign = encryptedSign
 
-	request := make([]byte, 0)
+	/*request := make([]byte, 0)
 	utils.SetUint16(&request, uint16(len(user.Username)))
 	utils.SetUint16(&request, uint16(len(cur.Username)))
-
 	cur.buildEncryptedPart(&request, profilePublicKey, encryptedData, encryptedSign)
-
+	cur.writeFindFriendRequestDirect(0, 0, user, []byte{}, request)
+	cur.writeFindFriendRequestSecondary(2, 2, -1, []byte{}, request)
+	*/
 	cur.writeFindFriendRequestDirect(0, 0, user, []byte{}, request)
 	cur.writeFindFriendRequestSecondary(2, 2, -1, []byte{}, request)
 }
@@ -56,6 +96,7 @@ func (cur *Profile) buildEncryptedPart(request *[]byte, key, sign, data []byte) 
 	utils.SetBytes(request, sign)
 }
 
+/*
 func (cur *Profile) writeFindFriendRequestSecondary(depth, degree, fromID int, previousTrace []byte, encrypted []byte) {
 	log.Print("Write find friend request secondary, depth:", depth, "degree:", degree, "fromID:", fromID)
 	for i := 0; i < len(cur.Friends); i++ {
@@ -82,6 +123,24 @@ func (cur *Profile) writeFindFriendRequestSecondary(depth, degree, fromID int, p
 	}
 }
 
+*/
+func (cur *Profile) writeFindFriendRequestSecondary(depth, degree, fromID int, previousTrace []byte, request FriendRequestStr) {
+	log.Print("Write find friend request secondary, depth:", depth, "degree:", degree, "fromID:", fromID)
+	for i := 0; i < len(cur.Friends); i++ {
+		if i >= depth {
+			break
+		}
+		sendTo := cur.Friends[i]
+		if int(sendTo.ID) == fromID {
+			continue
+		}
+		go func(sendTo User) {
+			cur.writeFindFriendRequestDirect(depth, degree, sendTo, previousTrace, request)
+		}(sendTo)
+	}
+}
+
+/*
 func (cur *Profile) writeFindFriendRequestDirect(depth, degree int, sendTo User, previousTrace []byte, encrypted []byte) {
 	log.Print("Write find friend request direct, depth:", depth, "degree:", degree)
 	request := make([]byte, 0)
@@ -98,6 +157,25 @@ func (cur *Profile) writeFindFriendRequestDirect(depth, degree int, sendTo User,
 	cur.WriteRequest(int(sendTo.ID), request)
 }
 
+*/
+
+func (cur *Profile) writeFindFriendRequestDirect(depth, degree int, sendTo User, previousTrace []byte, request FriendRequestStr) {
+	log.Print("Write find friend request direct, depth:", depth, "degree:", degree)
+	newTrace := make([]byte, 0)
+	utils.SetBytes(&newTrace, previousTrace)
+	utils.SetUint8(&newTrace, uint8(sendTo.ID))
+	request.BackTrace = newTrace
+
+	requestSend := make([]byte, 0)
+	var buffer bytes.Buffer
+	enc := gob.NewEncoder(&buffer)
+	err = enc.Encode(request)
+	ErrHandler(err)
+	bytesEnc := buffer.Bytes()
+	utils.SetUint16(&requestSend, uint16(len(bytesEnc)))
+	utils.SetBytes(&requestSend, bytesEnc)
+	cur.WriteRequest(int(sendTo.ID), requestSend)
+}
 func (cur *Profile) AddFriend(username, address, publicKey string) {
 	log.Println("Add friend, username:", username, "address:", address, "publicKey:", publicKey)
 	user := cur.searchUser(username)
