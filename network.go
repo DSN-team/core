@@ -8,6 +8,7 @@ import (
 	"github.com/DSN-team/core/utils"
 	"io"
 	"log"
+	"math/big"
 	"net"
 	"os"
 	"runtime"
@@ -73,7 +74,7 @@ func (cur *Profile) server(address string) {
 
 func (cur *Profile) connect(user User) {
 
-	targetId := int(user.ID)
+	targetId := user.ID
 	if _, ok := cur.Connections.Load(targetId); !ok {
 		log.Println("connection not found adding...")
 		con, err := net.Dial("tcp", user.Address)
@@ -81,7 +82,7 @@ func (cur *Profile) connect(user User) {
 		_, err = con.Write(publicKey)
 		ErrHandler(err)
 		cur.Connections.Store(targetId, con)
-		go cur.handleRequest(targetId, con)
+		go cur.handleRequest(int(targetId), con)
 		log.Println("connected to target", targetId)
 	} else {
 		return
@@ -103,13 +104,13 @@ func (cur *Profile) BuildDataRequest(requestType byte, size uint64, data []byte,
 	return request
 }
 
-func (cur *Profile) WriteRequest(userId int, request []byte) {
+func (cur *Profile) WriteRequest(user User, request []byte) {
 	var con net.Conn
-	if _, ok := cur.Connections.Load(userId); !ok {
-		log.Println("Not connected to:", userId)
-		return
+	if _, ok := cur.Connections.Load(user.ID); !ok {
+		log.Println("Not connected to:", user.Username)
+		cur.connect(user)
 	}
-	value, _ := cur.Connections.Load(userId)
+	value, _ := cur.Connections.Load(user.ID)
 	con = value.(net.Conn)
 	runtime.KeepAlive(cur.DataStrInput)
 	log.Println("writing to:", con.RemoteAddr())
@@ -203,9 +204,9 @@ func (cur *Profile) verificationHandler(clientId int, clientReader *bufio.Reader
 func (cur *Profile) networkHandler(clientReader *bufio.Reader) {
 	var friend User
 
-	var request FriendRequestStr
-	var requestEncryptMeta FriendRequestEncryptMeta
-	var requestEncryptSign FriendRequestEncryptSign
+	var request FriendRequest
+	var requestEncryptMeta FriendRequestMeta
+	var requestEncryptSign FriendRequestSign
 
 	bufferSize := utils.GetUint16Reader(clientReader)
 	//println("", bufferSize)
@@ -214,46 +215,31 @@ func (cur *Profile) networkHandler(clientReader *bufio.Reader) {
 	bufferStream := bytes.NewBuffer(buffer)
 	requestDecoder := gob.NewDecoder(bufferStream)
 	requestDecoder.Decode(&request)
-	/*
-		//metaData sizes
-		requestDepth := utils.GetUint8Reader(clientReader)
-		requestDegree := utils.GetUint8Reader(clientReader)
-		backTraceSize := utils.GetUint8Reader(clientReader)
-		backTrace, _ := utils.GetBytes(clientReader, uint64(backTraceSize))
-
-		userNameSize := utils.GetUint16Reader(clientReader)
-		fromUserNameSize := utils.GetUint16Reader(clientReader)
-
-		//todo complete this
-		publicKey, _ := utils.GetBytes(clientReader, uint64(128))
-		metaDataSize := utils.GetUint32Reader(clientReader)
-		metaDataEncrypted, _ := utils.GetBytes(clientReader, uint64(metaDataSize))
-		signSize := utils.GetUint32Reader(clientReader)
-		signDataEncrypted, _ := utils.GetBytes(clientReader, uint64(signSize))
-	*/
-	signData := cur.decryptAES(request.sign)
+	signData := cur.decryptAES(request.SignEncrypted)
 	signDataStream := bytes.NewBuffer(signData)
 	signDecoder := gob.NewDecoder(signDataStream)
 	signDecoder.Decode(&requestEncryptSign)
 
-	if cur.verifyData(request.metadata, requestEncryptSign.signR, requestEncryptSign.signS) == true {
-		metaData := cur.decryptAES(request.metadata)
+	r := big.NewInt(requestEncryptSign.SignR)
+	s := big.NewInt(requestEncryptSign.SignS)
+	if cur.verifyData(request.MetaDataEncrypted, *r, *s) == true {
+		metaData := cur.decryptAES(request.MetaDataEncrypted)
 		metaDataStream := bytes.NewBuffer(metaData)
 		metaDataDecoder := gob.NewDecoder(metaDataStream)
 		metaDataDecoder.Decode(&requestEncryptMeta)
 
-		if cur.Username == requestEncryptMeta.username {
-			key := UnmarshalPublicKey(requestEncryptSign.profilePublicKey)
-			friend = User{Username: string(requestEncryptMeta.username), PublicKey: &key, IsFriend: false}
+		if cur.Username == requestEncryptMeta.Username {
+			key := UnmarshalPublicKey(requestEncryptSign.FromPublicKey)
+			friend = User{Username: requestEncryptMeta.Username, PublicKey: &key, IsFriend: false}
 			cur.addUser(&friend)
 			cur.addFriendRequest(friend.ID, 1)
 
-			fmt.Println("Friend request done, request from:", requestEncryptMeta.fromUsername, "Accept?")
-			cur.DataStrOutput = append([]byte{utils.RequestNetwork}, requestEncryptMeta.fromUsername...)
-			cur.DataStrOutput = append(cur.DataStrOutput, requestEncryptSign.profilePublicKey...)
+			fmt.Println("Friend request done, request from:", requestEncryptMeta.FromUsername, "Accept?")
+			cur.DataStrOutput = append([]byte{utils.RequestNetwork}, requestEncryptMeta.FromUsername...)
+			cur.DataStrOutput = append(cur.DataStrOutput, requestEncryptSign.FromPublicKey...)
 			cur.DataStrOutput = append(cur.DataStrOutput, request.BackTrace...)
 
-			UpdateUI(len(requestEncryptMeta.username), int(friend.ID))
+			UpdateUI(len(requestEncryptMeta.Username), int(friend.ID))
 			return
 		}
 	}
@@ -261,8 +247,8 @@ func (cur *Profile) networkHandler(clientReader *bufio.Reader) {
 	request.Depth--
 	//Required: Friends.ping && Friends.is_online
 	if request.Depth > 0 {
-		encrypted := make([]byte, 0)
-		cur.buildEncryptedPart(&encrypted, requestEncryptSign.profilePublicKey, signData, request.metadata)
-		cur.writeFindFriendRequestSecondary(request.Depth, request.Degree, int(friend.ID), request.BackTrace, request)
+		//encrypted := make([]byte, 0)
+		//cur.buildEncryptedPart(&encrypted, request.FromPublicKey, signData, request.MetaDataEncrypted)
+		cur.writeFindFriendRequestSecondary(request, int(friend.ID))
 	}
 }
