@@ -38,27 +38,27 @@ func (cur *Profile) getFriendNumber(id int) int {
 
 func (cur *Profile) WriteFindFriendRequest(user User) {
 	log.Println("Write friend request, friend:", user.Username)
-	var buffer bytes.Buffer
-	var buffer2 bytes.Buffer
+	var requestBuffer bytes.Buffer
+	var signBuffer bytes.Buffer
 
 	var request FriendRequestStr
 	var requestEncryptMeta FriendRequestEncryptMeta
 	var requestEncryptSign FriendRequestEncryptSign
 
-	enc := gob.NewEncoder(&buffer)
-	enc2 := gob.NewEncoder(&buffer2)
+	requestEncoder := gob.NewEncoder(&requestBuffer)
+	signEncoder := gob.NewEncoder(&signBuffer)
 
 	profilePublicKey := MarshalPublicKey(&cur.PrivateKey.PublicKey)
 
 	requestEncryptMeta.username = user.Username
 	requestEncryptMeta.fromUsername = cur.Username
-	err = enc.Encode(requestEncryptMeta)
+	err = requestEncoder.Encode(requestEncryptMeta)
 	ErrHandler(err)
 	//metadata := make([]byte, 0)
 	//utils.SetBytes(&metadata, []byte(user.Username))
 	//utils.SetBytes(&metadata, []byte(cur.Username))
 	//encryptedData := cur.encryptAES(user.PublicKey, metadata)
-	encryptedData := cur.encryptAES(user.PublicKey, buffer.Bytes())
+	encryptedData := cur.encryptAES(user.PublicKey, requestBuffer.Bytes())
 
 	//sign := make([]byte, 0)
 	r, s := cur.signData(encryptedData)
@@ -66,13 +66,13 @@ func (cur *Profile) WriteFindFriendRequest(user User) {
 	requestEncryptSign.signR = *r
 	requestEncryptSign.signS = *s
 
-	err = enc2.Encode(requestEncryptSign)
+	err = signEncoder.Encode(requestEncryptSign)
 	ErrHandler(err)
 	//utils.SetBytes(&sign, profilePublicKey)
 	//utils.SetBytes(&sign, r.Bytes())
 	//utils.SetBytes(&sign, s.Bytes())
 
-	encryptedSign := cur.encryptAES(user.PublicKey, buffer2.Bytes())
+	encryptedSign := cur.encryptAES(user.PublicKey, signBuffer.Bytes())
 	request.metadata = encryptedData
 	request.sign = encryptedSign
 
