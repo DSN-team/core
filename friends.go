@@ -83,15 +83,6 @@ func (cur *Profile) WriteFindFriendRequest(user User) {
 	cur.writeFindFriendRequestSecondary(request, -1)
 }
 
-func (cur *Profile) buildEncryptedPart(request *[]byte, key, sign, data []byte) {
-	log.Println("Building encrypted part")
-	utils.SetBytes(request, key)
-	utils.SetUint32(request, uint32(len(data)))
-	utils.SetBytes(request, data)
-	utils.SetUint32(request, uint32(len(sign)))
-	utils.SetBytes(request, sign)
-}
-
 func (cur *Profile) writeFindFriendRequestSecondary(request FriendRequest, fromID int) {
 	for i := 0; i < len(cur.Friends); i++ {
 		if i >= request.Depth {
@@ -122,6 +113,7 @@ func (cur *Profile) writeFindFriendRequestDirect(friendRequest FriendRequest, se
 	request := Request{RequestType: utils.RequestNetwork, PublicKey: MarshalPublicKey(&cur.PrivateKey.PublicKey), Data: friendRequestBuffer.Bytes()}
 	cur.WriteRequest(sendTo, request)
 }
+
 func (cur *Profile) AddFriend(username, address, publicKey string) {
 	log.Println("Add friend, Username:", username, "address:", address, "publicKey:", publicKey)
 	user := cur.searchUser(username)

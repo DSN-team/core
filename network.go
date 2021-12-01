@@ -103,15 +103,16 @@ func (cur *Profile) RunServer(address string) {
 	go cur.server(address)
 }
 
-func (cur *Profile) BuildDataRequest(requestType byte, size uint64, data []byte, userId uint) (output []byte) {
+func (cur *Profile) BuildDataMessage(requestType byte, size uint64, data []byte, userId uint) (output []byte) {
 	log.Println("Building data request, request type: ", requestType, "size:",
 		size, "data:", data, "user id:", userId)
-	request := make([]byte, 0)
-	utils.SetByte(&request, requestType)
-	utils.SetUint64(&request, size)
+	dataMessage := DataMessage{string(data)}
+	var dataMessageBuffer bytes.Buffer
+	dataMessageEncoder := gob.NewEncoder(&dataMessageBuffer)
+	dataMessageEncoder.Encode(&dataMessage)
 	friendPos, _ := cur.FriendsIDXs.Load(userId)
-	utils.SetBytes(&request, cur.encryptAES(cur.Friends[friendPos.(int)].PublicKey, data))
-	return request
+	output = cur.encryptAES(cur.Friends[friendPos.(int)].PublicKey, dataMessageBuffer.Bytes())
+	return
 }
 
 func (cur *Profile) WriteRequest(user User, request Request) {
