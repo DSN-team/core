@@ -9,7 +9,7 @@ func TestAES(t *testing.T) {
 	publicKey := profileKey.PublicKey
 	println("PublicKey:", (publicKey).X.Uint64())
 	testStr := "12312"
-	if string(SelectedProfile.decryptAES(SelectedProfile.decryptAES([]byte(testStr)))) != testStr {
+	if string(SelectedProfile.decryptAES(&publicKey, SelectedProfile.encryptAES(&publicKey, []byte(testStr)))) != testStr {
 		t.Error("AES failed")
 	}
 }

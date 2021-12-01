@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fmt"
 	"github.com/DSN-team/core"
 	"github.com/DSN-team/core/tests/utils"
@@ -41,7 +43,12 @@ func delayedCall(from, to *core.Profile, msg string) {
 				log.Print("got it:", to.DataStrOutput)
 				log.Println("got it as string:", string(to.DataStrOutput))
 			}
-			request := from.BuildDataRequest(utils2.RequestData, uint64(len(msg)), from.DataStrInput[0:len(msg)], from.Friends[0].ID)
+			//request := from.BuildDataRequest(utils2.RequestData, uint64(len(msg)), from.DataStrInput[0:len(msg)], from.Friends[0].ID)
+			dataMessage := core.DataMessage{Text: msg}
+			var dataMessageBuffer bytes.Buffer
+			dataMessageEncoder := gob.NewEncoder(&dataMessageBuffer)
+			dataMessageEncoder.Encode(&dataMessage)
+			request := core.Request{RequestType: utils2.RequestData, PublicKey: core.MarshalPublicKey(&from.PrivateKey.PublicKey), Data: dataMessageBuffer.Bytes()}
 			fmt.Println("REQUEST:", request)
 			from.WriteRequest(from.Friends[0], request)
 		}()

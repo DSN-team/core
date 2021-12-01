@@ -19,6 +19,16 @@ type NetworkInterface interface {
 	sendData(callback func())
 }
 
+type Request struct {
+	RequestType byte
+	PublicKey   []byte
+	Data        []byte
+}
+
+type DataMessage struct {
+	Text string
+}
+
 func (cur *Profile) server(address string) {
 	ln, err := net.Listen("tcp", address)
 	ErrHandler(err)
@@ -104,7 +114,7 @@ func (cur *Profile) BuildDataRequest(requestType byte, size uint64, data []byte,
 	return request
 }
 
-func (cur *Profile) WriteRequest(user User, request []byte) {
+func (cur *Profile) WriteRequest(user User, request Request) {
 	var con net.Conn
 	if _, ok := cur.Connections.Load(user.ID); !ok {
 		log.Println("Not connected to:", user.Username)
@@ -115,13 +125,13 @@ func (cur *Profile) WriteRequest(user User, request []byte) {
 	runtime.KeepAlive(cur.DataStrInput)
 	log.Println("writing to:", con.RemoteAddr())
 
-	log.Println("input:", cur.DataStrInput)
-	log.Println("input str:", string(cur.DataStrInput))
+	var requestBuffer bytes.Buffer
+	requestEncoder := gob.NewEncoder(&requestBuffer)
+	requestEncoder.Encode(&request)
 
 	switch err {
 	case nil:
-		log.Println("ClientSend:", request, " count:", len(request))
-		if _, err = con.Write(request); err != nil {
+		if _, err = con.Write(requestBuffer.Bytes()); err != nil {
 			log.Printf("failed to send the client request: %v\n", err)
 		}
 	case io.EOF:
@@ -141,23 +151,25 @@ func (cur *Profile) handleRequest(clientId int, con net.Conn) {
 		ErrHandler(err)
 	}(con)
 	clientReader := bufio.NewReader(con)
+	requestDecoder := gob.NewDecoder(clientReader)
 	for {
-		requestType := utils.GetByte(clientReader)
-		fmt.Println("Request type:", requestType)
-		switch requestType {
+		var request Request
+		requestDecoder.Decode(&request)
+		fmt.Println("Request type:", request.RequestType)
+		switch request.RequestType {
 		case utils.RequestData:
 			{
-				cur.dataHandler(clientId, clientReader)
+				cur.dataHandler(clientId, request.Data)
 				break
 			}
 		case utils.RequestNetwork:
 			{
-				cur.networkHandler(clientReader)
+				cur.networkHandler(request.Data)
 				break
 			}
 		case utils.RequestDataVerification:
 			{
-				cur.verificationHandler(clientId, clientReader)
+				cur.verificationHandler(clientId, request.Data)
 				break
 			}
 		case utils.RequestError:
@@ -169,53 +181,42 @@ func (cur *Profile) handleRequest(clientId int, con net.Conn) {
 	}
 }
 
-func (cur *Profile) dataHandler(clientId int, clientReader *bufio.Reader) {
+func (cur *Profile) dataHandler(clientId int, data []byte) {
 	if clientId == -1 {
 		return
 	}
 
-	// Waiting for the client request
-	count := utils.GetUint64Reader(clientReader)
-	log.Println("Count:", count)
-	encData, err := utils.GetBytes(clientReader, count)
-	cur.DataStrOutput = cur.decryptAES(encData)
+	var dataMessage DataMessage
+	dataMessageDecoder := gob.NewDecoder(bytes.NewReader(data))
+	dataMessageDecoder.Decode(&dataMessage)
+	cur.DataStrOutput = []byte(dataMessage.Text)
 	cur.DataStrOutput = append([]byte{utils.RequestData}, cur.DataStrOutput...)
-	switch err {
-	case nil:
-		log.Println(cur.DataStrOutput)
-	case io.EOF:
-		log.Println("client closed the connection by terminating the process")
-		return
-	default:
-		log.Printf("error: %v\n", err)
-		return
-	}
+
 	log.Println("updating callback")
-	UpdateUI(int(count), clientId)
+	UpdateUI(len(dataMessage.Text), clientId)
 }
 
-func (cur *Profile) verificationHandler(clientId int, clientReader *bufio.Reader) {
+func (cur *Profile) verificationHandler(clientId int, data []byte) {
 	if clientId == -1 {
 		return
 	}
-	cur.Friends[cur.getFriendNumber(clientId)].Ping = int(utils.GetUint16Reader(clientReader))
+	cur.Friends[cur.getFriendNumber(clientId)].Ping = 0
 }
 
-func (cur *Profile) networkHandler(clientReader *bufio.Reader) {
+func (cur *Profile) networkHandler(data []byte) {
 	var friend User
 
 	var request FriendRequest
 	var requestEncryptMeta FriendRequestMeta
 	var requestEncryptSign FriendRequestSign
 
-	bufferSize := utils.GetUint16Reader(clientReader)
-	//println("", bufferSize)
-	buffer, err := utils.GetBytes(clientReader, uint64(bufferSize))
-	ErrHandler(err)
-	bufferStream := bytes.NewBuffer(buffer)
+	bufferStream := bytes.NewBuffer(data)
 	requestDecoder := gob.NewDecoder(bufferStream)
 	requestDecoder.Decode(&request)
-	signData := cur.decryptAES(request.SignEncrypted)
+
+	publicKey := UnmarshalPublicKey(request.FromPublicKey)
+
+	signData := cur.decryptAES(&publicKey, request.SignEncrypted)
 	signDataStream := bytes.NewBuffer(signData)
 	signDecoder := gob.NewDecoder(signDataStream)
 	signDecoder.Decode(&requestEncryptSign)
@@ -223,7 +224,7 @@ func (cur *Profile) networkHandler(clientReader *bufio.Reader) {
 	r := big.NewInt(requestEncryptSign.SignR)
 	s := big.NewInt(requestEncryptSign.SignS)
 	if cur.verifyData(request.MetaDataEncrypted, *r, *s) == true {
-		metaData := cur.decryptAES(request.MetaDataEncrypted)
+		metaData := cur.decryptAES(&publicKey, request.MetaDataEncrypted)
 		metaDataStream := bytes.NewBuffer(metaData)
 		metaDataDecoder := gob.NewDecoder(metaDataStream)
 		metaDataDecoder.Decode(&requestEncryptMeta)

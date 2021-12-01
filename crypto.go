@@ -1,16 +1,17 @@
 package core
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/hmac"
 	"crypto/rand"
-	"crypto/sha1"
 	"crypto/sha512"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/gob"
 	"log"
 	"math/big"
 )
@@ -18,6 +19,11 @@ import (
 var Curve = elliptic.P256
 
 var aesBlockLength = aes.BlockSize
+
+type DataAES struct {
+	Data []byte
+	IV   []byte
+}
 
 func genProfileKey() (key *ecdsa.PrivateKey) {
 	key, err = ecdsa.GenerateKey(Curve(), rand.Reader)
@@ -83,65 +89,65 @@ func (cur *Profile) decProfileKey(encKey string, password string) bool {
 
 func (cur *Profile) encryptAES(otherPublicKey *ecdsa.PublicKey, in []byte) (out []byte) {
 	log.Println("Encrypting aes")
-	x, _ := otherPublicKey.Curve.ScalarMult(otherPublicKey.X, otherPublicKey.Y, cur.PrivateKey.D.Bytes())
-	if x == nil {
+
+	scalarX, _ := otherPublicKey.Curve.ScalarMult(otherPublicKey.X, otherPublicKey.Y, cur.PrivateKey.D.Bytes())
+	if scalarX == nil {
 		return nil
 	}
-	shared := sha512.Sum512_256(x.Bytes())
+	sharedKey := sha512.Sum512_256(scalarX.Bytes())
+
 	iv, err := makeRandom(aesBlockLength)
 	if ErrHandler(err) {
 		return
 	}
 
-	ct := encryptCBC(in, iv, shared[:])
-	if ct == nil {
+	encryptedData := encryptCBC(in, iv, sharedKey[:])
+	if encryptedData == nil {
 		return
 	}
 
-	ephPub := elliptic.Marshal(otherPublicKey.Curve, cur.PrivateKey.PublicKey.X, cur.PrivateKey.PublicKey.Y)
-	out = make([]byte, 1+len(ephPub)+aesBlockLength)
-	out[0] = byte(len(ephPub))
-	copy(out[1:], ephPub)
-	copy(out[1+len(ephPub):], iv)
-	out = append(out, ct...)
+	var dataAES DataAES
+	var dataAESBuffer bytes.Buffer
 
-	h := hmac.New(sha1.New, shared[:])
-	h.Write(iv)
-	h.Write(ct)
-	out = h.Sum(out)
+	dataAES.IV = iv
+	dataAES.Data = encryptedData
+
+	dataAESEncoder := gob.NewEncoder(&dataAESBuffer)
+	dataAESEncoder.Encode(dataAES)
+
+	dataAESBytes := dataAESBuffer.Bytes()
+
+	h := hmac.New(sha512.New, sharedKey[:])
+	h.Write(dataAESBytes)
+	out = h.Sum(dataAESBytes)
 	return
 }
 
-func (cur *Profile) decryptAES(in []byte) (out []byte) {
+func (cur *Profile) decryptAES(otherPublicKey *ecdsa.PublicKey, in []byte) (out []byte) {
 	log.Println("Decrypting aes")
-	ephLen := int(in[0])
-	ephPub := in[1 : 1+ephLen]
-	ct := in[1+ephLen:]
-	if len(ct) < (sha1.Size + aesBlockLength) {
+
+	scalarX, _ := cur.PrivateKey.Curve.ScalarMult(otherPublicKey.X, otherPublicKey.Y, cur.PrivateKey.D.Bytes())
+	if scalarX == nil {
 		return nil
 	}
+	shared := sha512.Sum512_256(scalarX.Bytes())
 
-	x, y := elliptic.Unmarshal(Curve(), ephPub)
-	ok := Curve().IsOnCurve(x, y) // Rejects the identity point too.
-	if x == nil || !ok {
-		return nil
-	}
-
-	x, _ = cur.PrivateKey.Curve.ScalarMult(x, y, cur.PrivateKey.D.Bytes())
-	if x == nil {
-		return nil
-	}
-	shared := sha512.Sum512_256(x.Bytes())
-
-	tagStart := len(ct) - sha1.Size
-	h := hmac.New(sha1.New, shared[:])
-	h.Write(ct[:tagStart])
+	hashStart := len(in) - sha512.Size
+	h := hmac.New(sha512.New, shared[:])
+	h.Write(in[:hashStart])
 	mac := h.Sum(nil)
-	if !hmac.Equal(mac, ct[tagStart:]) {
+	if !hmac.Equal(mac, in[hashStart:]) {
+		log.Println("AES checksum mismatch")
 		return nil
 	}
 
-	out = decryptCBC(ct[aes.BlockSize:tagStart], ct[:aes.BlockSize], shared[:])
+	var dataAES DataAES
+	dataAESBuffer := bytes.NewBuffer(in)
+
+	dataAESDecoder := gob.NewDecoder(dataAESBuffer)
+	dataAESDecoder.Decode(&dataAES)
+
+	out = decryptCBC(dataAES.Data, dataAES.IV, shared[:])
 	return
 }
 
