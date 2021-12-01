@@ -94,7 +94,7 @@ func (cur *Profile) writeFindFriendRequestDirect(friendRequest FriendRequest, se
 
 func (cur *Profile) AddFriend(username, address, publicKey string) {
 	log.Println("Add friend, Username:", username, "address:", address, "publicKey:", publicKey)
-	user := cur.searchUser(username)
+	user := cur.getUserByUsername(username)
 	if user.ID == 0 {
 		user = User{ProfileID: cur.ID, Username: username, Address: address, PublicKeyString: publicKey, IsFriend: false}
 		cur.addUser(&user)
