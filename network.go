@@ -103,9 +103,8 @@ func (cur *Profile) RunServer(address string) {
 	go cur.server(address)
 }
 
-func (cur *Profile) BuildDataMessage(requestType byte, size uint64, data []byte, userId uint) (output []byte) {
-	log.Println("Building data request, request type: ", requestType, "size:",
-		size, "data:", data, "user id:", userId)
+func (cur *Profile) BuildDataMessage(data []byte, userId uint) (output []byte) {
+	log.Println("Building data request, data:", data, "user id:", userId)
 	dataMessage := DataMessage{string(data)}
 	var dataMessageBuffer bytes.Buffer
 	dataMessageEncoder := gob.NewEncoder(&dataMessageBuffer)
