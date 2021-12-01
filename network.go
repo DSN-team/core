@@ -69,13 +69,14 @@ func (cur *Profile) server(address string) {
 		}
 
 		log.Println("connected:", user.ID, clientPublicKeyString)
-
-		if _, ok := cur.Connections.Load(user.ID); !ok {
-			log.Println("connection not found adding...")
-			cur.Connections.Store(user.ID, con)
-		} else {
-			log.Println("connection already connected")
-			return
+		if user.ID != 0 {
+			if _, ok := cur.Connections.Load(user.ID); !ok {
+				log.Println("connection not found adding...")
+				cur.Connections.Store(user.ID, con)
+			} else {
+				log.Println("connection already connected")
+				return
+			}
 		}
 
 		go cur.handleRequest(user, con)
@@ -211,6 +212,7 @@ func (cur *Profile) verificationHandler(user User, data []byte) {
 }
 
 func (cur *Profile) networkHandler(data []byte) {
+	log.Println("handling network request")
 	var friend User
 
 	var request FriendRequest
