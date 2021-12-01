@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/DSN-team/core"
 	"github.com/DSN-team/core/tests/utils"
 	utils2 "github.com/DSN-team/core/utils"
@@ -21,6 +22,8 @@ func main() {
 	utils.CreateNetwork(profile0, profile1)
 	time.Sleep(100 * time.Millisecond)
 	utils.CreateNetwork(profile1, profile0)
+
+	fmt.Println("requests:", profile0.GetFriendRequests())
 	//go utils.StartConnection(profile0)
 	//go utils.StartConnection(profile1)
 	//time.Sleep(100 * time.Millisecond)

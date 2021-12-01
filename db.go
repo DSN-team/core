@@ -69,6 +69,7 @@ func (cur *Profile) getUserByPublicKey(publicKeyString string) (user User) {
 }
 
 func (cur *Profile) addFriendRequest(userID uint, direction int) {
+	//TODO check if already added
 	log.Println("Adding friend request: friend userID =", userID)
 	db.Create(&UserRequest{ProfileID: cur.ID, UserID: userID, Direction: direction})
 }
