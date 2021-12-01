@@ -40,6 +40,8 @@ func (cur *Profile) searchFriendRequest(id uint) bool {
 
 func (cur *Profile) searchUser(username string) (user User) {
 	db.Where(&User{ProfileID: cur.ID, Username: username}).First(&user)
+	publicKey := UnmarshalPublicKey(DecodeKey(user.PublicKeyString))
+	user.PublicKey = &publicKey
 	return
 }
 
@@ -80,7 +82,9 @@ func getProfileByID(id uint) (profile *Profile) {
 	return
 }
 
-func (cur *Profile) getUserByPublicKey(publicKey string) (user User) {
-	db.Where(User{PublicKeyString: publicKey}).First(&user)
+func (cur *Profile) getUserByPublicKey(publicKeyString string) (user User) {
+	db.Where(User{PublicKeyString: publicKeyString}).First(&user)
+	publicKey := UnmarshalPublicKey(DecodeKey(user.PublicKeyString))
+	user.PublicKey = &publicKey
 	return
 }
