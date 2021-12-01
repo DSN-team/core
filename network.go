@@ -230,8 +230,10 @@ func (cur *Profile) networkHandler(data []byte) {
 	signDecoder := gob.NewDecoder(signDataStream)
 	signDecoder.Decode(&requestEncryptSign)
 
-	r := big.NewInt(requestEncryptSign.SignR)
-	s := big.NewInt(requestEncryptSign.SignS)
+	r := new(big.Int)
+	r.SetBytes(requestEncryptSign.SignR)
+	s := new(big.Int)
+	s.SetBytes(requestEncryptSign.SignS)
 	if cur.verifyData(request.MetaDataEncrypted, *r, *s) == true {
 		metaData := cur.decryptAES(&publicKey, request.MetaDataEncrypted)
 		metaDataStream := bytes.NewBuffer(metaData)

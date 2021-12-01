@@ -22,7 +22,7 @@ type FriendRequestMeta struct {
 }
 type FriendRequestSign struct {
 	FromPublicKey []byte
-	SignR, SignS  int64
+	SignR, SignS  []byte
 }
 
 func (cur *Profile) sortFriends() {
@@ -63,8 +63,8 @@ func (cur *Profile) WriteFindFriendRequest(user User) {
 	r, s := cur.signData(encryptedMetaData)
 	//build request sign
 	requestSign.FromPublicKey = profilePublicKey
-	requestSign.SignR = r.Int64()
-	requestSign.SignS = s.Int64()
+	requestSign.SignR = r.Bytes()
+	requestSign.SignS = s.Bytes()
 	//encode request sign
 	err = signEncoder.Encode(requestSign)
 	ErrHandler(err)
