@@ -223,11 +223,12 @@ func addPadding(data []byte) []byte {
 	return data
 }
 
-func (cur *Profile) signData(data []byte) (*big.Int, *big.Int) {
-	log.Println("Signing data")
-	r, s, err := ecdsa.Sign(rand.Reader, cur.PrivateKey, data)
+func (cur *Profile) signData(data []byte) (r *big.Int, s *big.Int) {
+	log.Print("Signing data")
+	r, s, err = ecdsa.Sign(rand.Reader, cur.PrivateKey, data)
 	ErrHandler(err)
-	return r, s
+	log.Println("data signed, r:", r, "s:", s)
+	return
 }
 
 func (cur *Profile) verifyData(data []byte, r, s big.Int) (result bool) {
