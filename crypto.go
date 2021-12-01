@@ -231,6 +231,8 @@ func (cur *Profile) signData(data []byte) (*big.Int, *big.Int) {
 }
 
 func (cur *Profile) verifyData(data []byte, r, s big.Int) (result bool) {
-	log.Println("Verify data")
-	return ecdsa.Verify(&cur.PrivateKey.PublicKey, data, &r, &s)
+	log.Print("Verify data")
+	result = ecdsa.Verify(&cur.PrivateKey.PublicKey, data, &r, &s)
+	log.Println("data valid:", result)
+	return
 }

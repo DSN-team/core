@@ -232,8 +232,6 @@ func (cur *Profile) networkHandler(data []byte) {
 
 	r := big.NewInt(requestEncryptSign.SignR)
 	s := big.NewInt(requestEncryptSign.SignS)
-	log.Println("Sign r:", requestEncryptSign.SignR, "Sign s:", requestEncryptSign.SignS)
-	log.Println("r:", r, "s:", s)
 	if cur.verifyData(request.MetaDataEncrypted, *r, *s) == true {
 		metaData := cur.decryptAES(&publicKey, request.MetaDataEncrypted)
 		metaDataStream := bytes.NewBuffer(metaData)
