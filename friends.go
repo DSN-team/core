@@ -14,15 +14,10 @@ type FriendRequest struct {
 	BackTrace         []byte
 	FromPublicKey     []byte
 	MetaDataEncrypted []byte
-	SignEncrypted     []byte
 }
 
 type FriendRequestMeta struct {
 	Username, FromUsername string
-}
-type FriendRequestSign struct {
-	FromPublicKey []byte
-	SignR, SignS  []byte
 }
 
 func (cur *Profile) sortFriends() {
@@ -39,17 +34,10 @@ func (cur *Profile) getFriendNumber(id int) int {
 func (cur *Profile) WriteFindFriendRequest(user User) {
 	log.Println("Write friend request, friend:", user.Username)
 	var requestBuffer bytes.Buffer
-	var signBuffer bytes.Buffer
-
 	var request FriendRequest
 	var requestMeta FriendRequestMeta
-	var requestSign FriendRequestSign
 
 	requestEncoder := gob.NewEncoder(&requestBuffer)
-	signEncoder := gob.NewEncoder(&signBuffer)
-
-	profilePublicKey := MarshalPublicKey(&cur.PrivateKey.PublicKey)
-
 	//build request meta
 	requestMeta.Username = user.Username
 	requestMeta.FromUsername = cur.Username
@@ -60,20 +48,10 @@ func (cur *Profile) WriteFindFriendRequest(user User) {
 	//encrypt meta
 	encryptedMetaData := cur.encryptAES(user.PublicKey, requestBuffer.Bytes())
 
-	r, s := cur.signData(encryptedMetaData)
-	//build request sign
-	requestSign.FromPublicKey = profilePublicKey
-	requestSign.SignR = r.Bytes()
-	requestSign.SignS = s.Bytes()
-	//encode request sign
-	err = signEncoder.Encode(requestSign)
-	ErrHandler(err)
-	//encrypt request sign
-	encryptedSign := cur.encryptAES(user.PublicKey, signBuffer.Bytes())
-	//build request meta and sign
-	request.FromPublicKey = MarshalPublicKey(&cur.PrivateKey.PublicKey)
+	profilePublicKey := MarshalPublicKey(&cur.PrivateKey.PublicKey)
+	//build request meta
+	request.FromPublicKey = profilePublicKey
 	request.MetaDataEncrypted = encryptedMetaData
-	request.SignEncrypted = encryptedSign
 
 	request.Degree = 0
 	request.Depth = 0

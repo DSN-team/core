@@ -19,14 +19,14 @@ func main() {
 	profile0 := utils.RunProfile("0")
 	profile1 := utils.RunProfile("1")
 	utils.CreateNetwork(profile0, profile1)
+	time.Sleep(100 * time.Millisecond)
 	utils.CreateNetwork(profile1, profile0)
-	go utils.StartConnection(profile0)
-	time.Sleep(100 * time.Millisecond)
-	go utils.StartConnection(profile1)
-	time.Sleep(100 * time.Millisecond)
+	//go utils.StartConnection(profile0)
+	//go utils.StartConnection(profile1)
+	//time.Sleep(100 * time.Millisecond)
 
-	delayedCall(profile0, profile1, "test")
-	delayedCall(profile1, profile0, "test")
+	//delayedCall(profile0, profile1, "test")
+	//delayedCall(profile1, profile0, "test")
 
 	//Hold main thread
 	for {

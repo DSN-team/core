@@ -8,7 +8,6 @@ import (
 	"github.com/DSN-team/core/utils"
 	"io"
 	"log"
-	"math/big"
 	"net"
 	"os"
 	"runtime"
@@ -217,7 +216,6 @@ func (cur *Profile) networkHandler(data []byte) {
 
 	var request FriendRequest
 	var requestEncryptMeta FriendRequestMeta
-	var requestEncryptSign FriendRequestSign
 
 	bufferStream := bytes.NewBuffer(data)
 	requestDecoder := gob.NewDecoder(bufferStream)
@@ -225,35 +223,24 @@ func (cur *Profile) networkHandler(data []byte) {
 
 	publicKey := UnmarshalPublicKey(request.FromPublicKey)
 
-	signData := cur.decryptAES(&publicKey, request.SignEncrypted)
-	signDataStream := bytes.NewBuffer(signData)
-	signDecoder := gob.NewDecoder(signDataStream)
-	signDecoder.Decode(&requestEncryptSign)
+	metaData := cur.decryptAES(&publicKey, request.MetaDataEncrypted)
+	metaDataStream := bytes.NewBuffer(metaData)
+	metaDataDecoder := gob.NewDecoder(metaDataStream)
+	metaDataDecoder.Decode(&requestEncryptMeta)
 
-	r := new(big.Int)
-	r.SetBytes(requestEncryptSign.SignR)
-	s := new(big.Int)
-	s.SetBytes(requestEncryptSign.SignS)
-	if cur.verifyData(request.MetaDataEncrypted, *r, *s) == true {
-		metaData := cur.decryptAES(&publicKey, request.MetaDataEncrypted)
-		metaDataStream := bytes.NewBuffer(metaData)
-		metaDataDecoder := gob.NewDecoder(metaDataStream)
-		metaDataDecoder.Decode(&requestEncryptMeta)
+	if cur.Username == requestEncryptMeta.Username {
+		key := UnmarshalPublicKey(request.FromPublicKey)
+		friend = User{Username: requestEncryptMeta.Username, PublicKey: &key, IsFriend: false}
+		cur.addUser(&friend)
+		cur.addFriendRequest(friend.ID, 1)
 
-		if cur.Username == requestEncryptMeta.Username {
-			key := UnmarshalPublicKey(requestEncryptSign.FromPublicKey)
-			friend = User{Username: requestEncryptMeta.Username, PublicKey: &key, IsFriend: false}
-			cur.addUser(&friend)
-			cur.addFriendRequest(friend.ID, 1)
+		fmt.Println("Friend request done, request from:", requestEncryptMeta.FromUsername, "Accept?")
+		cur.DataStrOutput = append([]byte{utils.RequestNetwork}, requestEncryptMeta.FromUsername...)
+		cur.DataStrOutput = append(cur.DataStrOutput, request.FromPublicKey...)
+		cur.DataStrOutput = append(cur.DataStrOutput, request.BackTrace...)
 
-			fmt.Println("Friend request done, request from:", requestEncryptMeta.FromUsername, "Accept?")
-			cur.DataStrOutput = append([]byte{utils.RequestNetwork}, requestEncryptMeta.FromUsername...)
-			cur.DataStrOutput = append(cur.DataStrOutput, requestEncryptSign.FromPublicKey...)
-			cur.DataStrOutput = append(cur.DataStrOutput, request.BackTrace...)
-
-			UpdateUI(len(requestEncryptMeta.Username), int(friend.ID))
-			return
-		}
+		UpdateUI(len(requestEncryptMeta.Username), int(friend.ID))
+		return
 	}
 
 	request.Depth--
