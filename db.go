@@ -49,7 +49,7 @@ func (cur *Profile) editUser(id int, user *User) {
 	db.First(&user, id)
 }
 
-func (cur *Profile) getUser(id int) (user User) {
+func (cur *Profile) getUser(id uint) (user User) {
 	db.Where(User{ProfileID: cur.ID}).First(&user, id)
 	return
 }
