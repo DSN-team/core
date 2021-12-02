@@ -48,4 +48,5 @@ type UserRequest struct {
 	ProfileID uint
 	UserID    uint
 	Direction int
+	Status    int
 }

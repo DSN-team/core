@@ -38,8 +38,14 @@ func getProfileByID(id uint) (profile *Profile) {
 
 func (cur *Profile) addUser(user *User) {
 	log.Println("Adding User:", user.Username)
-	db.Create(&user)
-	db.Last(&user)
+	var search User
+	db.Where(user).First(&search)
+	if search.ID == 0 {
+		db.Create(&user)
+		db.Last(&user)
+	} else {
+		user.ID = search.ID
+	}
 	return
 }
 
@@ -69,13 +75,16 @@ func (cur *Profile) getUserByPublicKey(publicKeyString string) (user User) {
 }
 
 func (cur *Profile) addFriendRequest(userID uint, direction int) {
-	//TODO check if already added
 	log.Println("Adding friend request: friend userID =", userID)
-	db.Create(&UserRequest{ProfileID: cur.ID, UserID: userID, Direction: direction})
+	var request UserRequest
+	db.Where(&UserRequest{ProfileID: cur.ID, UserID: userID, Direction: direction}).Find(&request)
+	if request.ID == 0 {
+		db.Create(&UserRequest{ProfileID: cur.ID, UserID: userID, Direction: direction})
+	}
 }
 
 func (cur *Profile) GetFriendRequests() (requests []UserRequest) {
-	db.Where("profile_id", cur.ID).Find(&requests)
+	db.Where(&UserRequest{ProfileID: cur.ID, Status: 0}).Find(&requests)
 	return requests
 }
 
