@@ -23,7 +23,7 @@ func main() {
 	time.Sleep(100 * time.Millisecond)
 	utils.CreateNetwork(profile1, profile0)
 
-	fmt.Println("requests:", profile0.GetFriendRequests())
+	fmt.Println("requests:", profile0.GetFriendRequestsIn())
 	//go utils.StartConnection(profile0)
 	//go utils.StartConnection(profile1)
 	//time.Sleep(100 * time.Millisecond)

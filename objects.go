@@ -28,8 +28,9 @@ type Profile struct {
 	Password         string
 	PrivateKeyString string
 
-	Friends        []User
-	FriendRequests []UserRequest
+	Friends           []User
+	FriendRequestsIn  []UserRequest
+	FriendRequestsOut []UserRequest
 
 	FriendsIDXs   sync.Map          `gorm:"-"`
 	Connections   sync.Map          `gorm:"-"`

@@ -138,7 +138,12 @@ func (cur *Profile) ConnectToFriend(pos int) {
 	go cur.connect(cur.Friends[cur.getFriendNumber(pos)])
 }
 
-func (cur *Profile) LoadFriendsRequests() int {
-	cur.FriendRequests = cur.GetFriendRequests()
-	return len(cur.FriendRequests)
+func (cur *Profile) LoadFriendsRequestsIn() int {
+	cur.FriendRequestsIn = cur.GetFriendRequestsIn()
+	return len(cur.FriendRequestsIn)
+}
+
+func (cur *Profile) LoadFriendsRequestsOut() int {
+	cur.FriendRequestsOut = cur.GetFriendRequestsOut()
+	return len(cur.FriendRequestsIn)
 }
