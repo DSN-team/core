@@ -142,3 +142,11 @@ func (cur *Profile) LoadFriendsRequests() int {
 	cur.FriendRequests = cur.GetFriendRequests()
 	return len(cur.FriendRequests)
 }
+
+func (request *FriendRequest) Accept() {
+
+}
+
+func (request *FriendRequest) Reject() {
+
+}
