@@ -143,10 +143,10 @@ func (cur *Profile) LoadFriendsRequests() int {
 	return len(cur.FriendRequests)
 }
 
-func (request *UserRequest) Accept() {
-
+func (cur *Profile) Accept(request *UserRequest) {
+	cur.acceptFriendRequest(request)
 }
 
-func (request *UserRequest) Reject() {
-
+func (cur *Profile) Reject(request *UserRequest) {
+	cur.rejectFriendRequest(request)
 }
