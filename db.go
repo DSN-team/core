@@ -83,7 +83,7 @@ func (cur *Profile) addFriendRequest(userID uint, direction int) {
 	}
 }
 
-func (cur *Profile) acceptFriendRequest(request *UserRequest) {
+func (cur *Profile) AcceptFriendRequest(request *UserRequest) {
 	user := cur.GetUser(request.UserID)
 	user.IsFriend = true
 	db.Save(&user)
@@ -91,7 +91,7 @@ func (cur *Profile) acceptFriendRequest(request *UserRequest) {
 	db.Save(&request)
 }
 
-func (cur *Profile) rejectFriendRequest(request *UserRequest) {
+func (cur *Profile) RejectFriendRequest(request *UserRequest) {
 	user := cur.GetUser(request.UserID)
 	user.IsFriend = false
 	db.Save(&user)

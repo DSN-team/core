@@ -17,7 +17,7 @@ type FriendRequest struct {
 }
 
 type FriendRequestMeta struct {
-	Username, FromUsername string
+	ToUsername, FromUsername string
 }
 
 func (cur *Profile) sortFriends() {
@@ -39,7 +39,7 @@ func (cur *Profile) WriteFindFriendRequest(user User) {
 
 	requestEncoder := gob.NewEncoder(&requestBuffer)
 	//build request meta
-	requestMeta.Username = user.Username
+	requestMeta.ToUsername = user.Username
 	requestMeta.FromUsername = cur.Username
 	//encode request meta
 	err = requestEncoder.Encode(requestMeta)
@@ -93,7 +93,7 @@ func (cur *Profile) writeFindFriendRequestDirect(friendRequest FriendRequest, se
 }
 
 func (cur *Profile) AddFriend(username, address, publicKey string) {
-	log.Println("Add friend, Username:", username, "address:", address, "publicKey:", publicKey)
+	log.Println("Add friend, ToUsername:", username, "address:", address, "publicKey:", publicKey)
 	user := cur.getUserByUsername(username)
 	if user.ID == 0 {
 		user = User{ProfileID: cur.ID, Username: username, Address: address, PublicKeyString: publicKey, IsFriend: false}
@@ -141,12 +141,4 @@ func (cur *Profile) ConnectToFriend(pos int) {
 func (cur *Profile) LoadFriendsRequests() int {
 	cur.FriendRequests = cur.GetFriendRequests()
 	return len(cur.FriendRequests)
-}
-
-func (cur *Profile) AcceptFriendRequest(request *UserRequest) {
-	cur.acceptFriendRequest(request)
-}
-
-func (cur *Profile) RejectFriendRequest(request *UserRequest) {
-	cur.rejectFriendRequest(request)
 }

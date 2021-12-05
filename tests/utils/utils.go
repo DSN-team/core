@@ -49,7 +49,7 @@ func StartConnection(from *core.Profile) {
 }
 
 func ProfileToString(user *core.Profile) (output string) {
-	output += "Username:" + user.Username
+	output += "ToUsername:" + user.Username
 	output += "Password:" + user.Password
 	output += "Address:" + user.Address
 	return output

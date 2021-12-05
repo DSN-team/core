@@ -219,27 +219,29 @@ func (cur *Profile) networkHandler(data []byte) {
 
 	bufferStream := bytes.NewBuffer(data)
 	requestDecoder := gob.NewDecoder(bufferStream)
-	requestDecoder.Decode(&request)
+	err := requestDecoder.Decode(&request)
+	ErrHandler(err)
 
 	publicKey := UnmarshalPublicKey(request.FromPublicKey)
 
 	metaData := cur.decryptAES(&publicKey, request.MetaDataEncrypted)
 	metaDataStream := bytes.NewBuffer(metaData)
 	metaDataDecoder := gob.NewDecoder(metaDataStream)
-	metaDataDecoder.Decode(&requestEncryptMeta)
+	err = metaDataDecoder.Decode(&requestEncryptMeta)
+	ErrHandler(err)
 
-	if cur.Username == requestEncryptMeta.Username {
+	if cur.Username == requestEncryptMeta.ToUsername {
 		key := UnmarshalPublicKey(request.FromPublicKey)
-		friend = User{Username: requestEncryptMeta.Username, PublicKey: &key, IsFriend: false}
+		friend = User{Username: requestEncryptMeta.FromUsername, PublicKey: &key, IsFriend: false}
 		cur.addUser(&friend)
 		cur.addFriendRequest(friend.ID, 1)
 
-		fmt.Println("Friend request done, request from:", requestEncryptMeta.FromUsername, "AcceptFriendRequest?")
+		fmt.Println("Friend request done, request from:", requestEncryptMeta.FromUsername)
 		cur.DataStrOutput = append([]byte{utils.RequestNetwork}, requestEncryptMeta.FromUsername...)
 		cur.DataStrOutput = append(cur.DataStrOutput, request.FromPublicKey...)
 		cur.DataStrOutput = append(cur.DataStrOutput, request.BackTrace...)
 
-		UpdateUI(len(requestEncryptMeta.Username), int(friend.ID))
+		UpdateUI(len(requestEncryptMeta.ToUsername), int(friend.ID))
 		return
 	}
 
