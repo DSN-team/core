@@ -234,7 +234,7 @@ func (cur *Profile) networkHandler(data []byte) {
 		cur.addUser(&friend)
 		cur.addFriendRequest(friend.ID, 1)
 
-		fmt.Println("Friend request done, request from:", requestEncryptMeta.FromUsername, "Accept?")
+		fmt.Println("Friend request done, request from:", requestEncryptMeta.FromUsername, "AcceptFriendRequest?")
 		cur.DataStrOutput = append([]byte{utils.RequestNetwork}, requestEncryptMeta.FromUsername...)
 		cur.DataStrOutput = append(cur.DataStrOutput, request.FromPublicKey...)
 		cur.DataStrOutput = append(cur.DataStrOutput, request.BackTrace...)
