@@ -139,11 +139,11 @@ func (cur *Profile) ConnectToFriend(pos int) {
 }
 
 func (cur *Profile) LoadFriendsRequestsIn() int {
-	cur.FriendRequestsIn = cur.GetFriendRequestsIn()
+	cur.FriendRequestsIn = cur.getFriendRequestsIn()
 	return len(cur.FriendRequestsIn)
 }
 
 func (cur *Profile) LoadFriendsRequestsOut() int {
-	cur.FriendRequestsOut = cur.GetFriendRequestsOut()
+	cur.FriendRequestsOut = cur.getFriendRequestsOut()
 	return len(cur.FriendRequestsIn)
 }
