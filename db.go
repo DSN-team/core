@@ -99,6 +99,10 @@ func (cur *Profile) RejectFriendRequest(request *UserRequest) {
 	db.Save(&request)
 }
 
+func (cur *Profile) DeleteFriendRequest(request *UserRequest) {
+	db.Delete(&request)
+}
+
 func (cur *Profile) getFriendRequestsIn() (requests []UserRequest) {
 	db.Where(&UserRequest{ProfileID: cur.ID, Direction: 0, Status: 0}).Find(&requests)
 	return requests
