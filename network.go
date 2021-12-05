@@ -231,8 +231,8 @@ func (cur *Profile) networkHandler(data []byte) {
 	ErrHandler(err)
 
 	if cur.Username == requestEncryptMeta.ToUsername {
-		key := UnmarshalPublicKey(request.FromPublicKey)
-		friend = User{Username: requestEncryptMeta.FromUsername, PublicKey: &key, IsFriend: false}
+		publicKeyString := EncodeKey(request.FromPublicKey)
+		friend = User{Username: requestEncryptMeta.FromUsername, PublicKey: &publicKey, IsFriend: false, PublicKeyString: publicKeyString}
 		cur.addUser(&friend)
 		cur.addFriendRequest(friend.ID, 1)
 
