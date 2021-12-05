@@ -83,6 +83,22 @@ func (cur *Profile) addFriendRequest(userID uint, direction int) {
 	}
 }
 
+func (cur *Profile) acceptFriendRequest(request *UserRequest) {
+	user := cur.GetUser(request.UserID)
+	user.IsFriend = true
+	db.Save(&user)
+	request.Status = 1
+	db.Save(&request)
+}
+
+func (cur *Profile) rejectFriendRequest(request *UserRequest) {
+	user := cur.GetUser(request.UserID)
+	user.IsFriend = false
+	db.Save(&user)
+	request.Status = 1
+	db.Save(&request)
+}
+
 func (cur *Profile) GetFriendRequests() (requests []UserRequest) {
 	db.Where(&UserRequest{ProfileID: cur.ID, Status: 0}).Find(&requests)
 	return requests
