@@ -3,8 +3,8 @@ package core
 import (
 	"bytes"
 	"encoding/gob"
+	"fmt"
 	"github.com/DSN-team/core/utils"
-	"log"
 	"sort"
 	"time"
 )
@@ -21,18 +21,20 @@ type FriendRequestMeta struct {
 }
 
 func (cur *Profile) sortFriends() {
+	fmt.Println("Sorting friends...")
 	sort.Slice(cur.Friends, func(i, j int) bool {
 		return cur.Friends[i].Ping < cur.Friends[j].Ping
 	})
 }
 
 func (cur *Profile) getFriendNumber(id int) int {
+	fmt.Println("Getting friend number")
 	output, _ := cur.FriendsIDXs.Load(id)
 	return output.(int)
 }
 
 func (cur *Profile) WriteFindFriendRequest(user User) {
-	log.Println("Write friend request, friend:", user.Username)
+	fmt.Println("Write friend request, friend:", user.Username)
 	var requestBuffer bytes.Buffer
 	var request FriendRequest
 	var requestMeta FriendRequestMeta
@@ -62,6 +64,7 @@ func (cur *Profile) WriteFindFriendRequest(user User) {
 }
 
 func (cur *Profile) writeFindFriendRequestSecondary(request FriendRequest, fromID int) {
+	fmt.Print("Write find friend friendRequest secondary, depth:", request.Depth, "degree:", request.Degree)
 	for i := 0; i < len(cur.Friends); i++ {
 		if i >= request.Depth {
 			break
@@ -77,7 +80,7 @@ func (cur *Profile) writeFindFriendRequestSecondary(request FriendRequest, fromI
 }
 
 func (cur *Profile) writeFindFriendRequestDirect(friendRequest FriendRequest, sendTo User) {
-	//log.Print("Write find friend friendRequest direct, depth:", depth, "degree:", degree)
+	fmt.Print("Write find friend friendRequest direct, depth:", friendRequest.Depth, "degree:", friendRequest.Degree)
 	newTrace := make([]byte, 0)
 	utils.SetBytes(&newTrace, friendRequest.BackTrace)
 	utils.SetUint8(&newTrace, uint8(sendTo.ID))
@@ -93,7 +96,7 @@ func (cur *Profile) writeFindFriendRequestDirect(friendRequest FriendRequest, se
 }
 
 func (cur *Profile) AddFriend(username, address, publicKey string) {
-	log.Println("Add friend, ToUsername:", username, "address:", address, "publicKey:", publicKey)
+	fmt.Println("Add friend, ToUsername:", username, "address:", address, "publicKey:", publicKey)
 	user := cur.getUserByUsername(username)
 	if user.ID == 0 {
 		user = User{ProfileID: cur.ID, Username: username, Address: address, PublicKeyString: publicKey, IsFriend: false}
@@ -108,7 +111,7 @@ func (cur *Profile) AddFriend(username, address, publicKey string) {
 }
 
 func (cur *Profile) LoadFriends() int {
-	log.Println("Loading Friends from db")
+	fmt.Println("Loading Friends from db")
 	cur.Friends = cur.getFriends()
 	for i := 0; i < len(cur.Friends); i++ {
 		publicKey := UnmarshalPublicKey(DecodeKey(cur.Friends[i].PublicKeyString))
@@ -121,7 +124,7 @@ func (cur *Profile) LoadFriends() int {
 func (cur *Profile) ConnectToFriends() {
 	go func() {
 		for i := 0; i < len(cur.Friends); i++ {
-			log.Println("Connecting to friend:", cur.Friends[i].Username, "number:", i)
+			fmt.Println("Connecting to friend:", cur.Friends[i].Username, "number:", i)
 			go cur.connect(cur.Friends[i])
 		}
 		for {
@@ -145,5 +148,5 @@ func (cur *Profile) LoadFriendsRequestsIn() int {
 
 func (cur *Profile) LoadFriendsRequestsOut() int {
 	cur.FriendRequestsOut = cur.getFriendRequestsOut()
-	return len(cur.FriendRequestsIn)
+	return len(cur.FriendRequestsOut)
 }

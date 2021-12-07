@@ -9,6 +9,7 @@ import (
 var UpdateUI = func(int, int) {}
 
 func (cur *Profile) Register(username, password, address string) bool {
+	fmt.Println("Register", username, password, address)
 	privateKey := genProfileKey()
 	if privateKey == nil {
 		return false
@@ -21,6 +22,7 @@ func (cur *Profile) Register(username, password, address string) bool {
 }
 
 func (cur *Profile) Login(password string, pos int) (result bool) {
+	fmt.Println("Login", password, pos)
 	profile := getProfileByID(Profiles[pos].ID)
 	cur.Password = password
 	cur.ID, cur.Username, cur.Address, cur.PrivateKeyString = profile.ID, profile.Username, profile.Address, profile.PrivateKeyString
@@ -30,6 +32,7 @@ func (cur *Profile) Login(password string, pos int) (result bool) {
 }
 
 func UsernamePos(username string) int {
+	fmt.Println("Getting username pos")
 	profiles := getProfiles()
 	pos := -1
 	for i := 0; i < len(profiles); i++ {

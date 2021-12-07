@@ -1,19 +1,14 @@
 package main
 
 import (
+	"fmt"
 	"github.com/DSN-team/core"
 	"github.com/DSN-team/core/tests/utils"
 	utils2 "github.com/DSN-team/core/utils"
-	"log"
 	"time"
 )
 
 func main() {
-	core.UpdateUI = func(i int, client int) {
-		log.Print("client:", client, "\n")
-		//log.Print("got it:", to.DataStrOutput)
-		//log.Println("got it as string:", string(to.DataStrOutput))
-	}
 
 	utils.InitTest()
 	profile0 := utils.RunProfile("0")
@@ -23,12 +18,21 @@ func main() {
 	utils.CreateNetwork(profile1, profile0)
 
 	//fmt.Println("requests:", profile0.getFriendRequestsIn())
-	//go utils.StartConnection(profile0)
-	//go utils.StartConnection(profile1)
-	//time.Sleep(100 * time.Millisecond)
+	go utils.StartConnection(profile0)
+	go utils.StartConnection(profile1)
+	time.Sleep(1000 * time.Millisecond)
+	profile0.LoadFriendsRequestsIn()
+	profile1.LoadFriendsRequestsIn()
+	for i := 0; i < len(profile0.FriendRequestsIn); i++ {
+		profile0.AcceptFriendRequest(&profile0.FriendRequestsIn[i])
+	}
 
-	//delayedCall(profile0, profile1, "test")
-	//delayedCall(profile1, profile0, "test")
+	if len(profile0.Friends) > 0 {
+		delayedCall(profile0, profile1, "test")
+	}
+	if len(profile1.Friends) > 0 {
+		delayedCall(profile1, profile0, "test")
+	}
 
 	//Hold main thread
 	for {
@@ -37,6 +41,13 @@ func main() {
 }
 
 func delayedCall(from, to *core.Profile, msg string) {
+
+	core.UpdateUI = func(i int, client int) {
+		fmt.Print("client:", client, "\n")
+		fmt.Print("got it:", to.DataStrOutput)
+		fmt.Println("got it as string:", string(to.DataStrOutput))
+	}
+
 	for i := 0; i < len(msg); i++ {
 		from.DataStrInput[i] = msg[i]
 	}

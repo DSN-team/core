@@ -43,15 +43,15 @@ func (cur *Profile) server(address string) {
 	for {
 		con, err := ln.Accept()
 		ErrHandler(err)
-		log.Println("accepted server client")
+		fmt.Println("Accepted server client")
 
 		profilePublicKey := DecodeKey(cur.GetProfilePublicKey())
 
 		clientReader := bufio.NewReader(con)
 		publicKeyLen := len(profilePublicKey)
-		//TODO Add network type
-		log.Println(publicKeyLen)
-		clientKey, err := clientReader.Peek(publicKeyLen)
+
+		var clientKey []byte
+		clientKey, err = clientReader.Peek(publicKeyLen)
 		ErrHandler(err)
 		_, err = clientReader.Discard(publicKeyLen)
 		ErrHandler(err)
@@ -67,13 +67,13 @@ func (cur *Profile) server(address string) {
 			return
 		}
 
-		log.Println("connected:", user.ID, clientPublicKeyString)
+		fmt.Println("connected:", user.ID, clientPublicKeyString)
 		if user.ID != 0 {
 			if _, ok := cur.Connections.Load(user.ID); !ok {
-				log.Println("connection not found adding...")
+				fmt.Println("connection not found adding...")
 				cur.Connections.Store(user.ID, con)
 			} else {
-				log.Println("connection already connected")
+				fmt.Println("connection already connected")
 				return
 			}
 		}
@@ -84,14 +84,14 @@ func (cur *Profile) server(address string) {
 
 func (cur *Profile) connect(user User) {
 	if _, ok := cur.Connections.Load(user.ID); !ok {
-		log.Println("connection not found adding...")
+		fmt.Println("Connection not found adding...")
 		con, err := net.Dial("tcp", user.Address)
 		publicKey := DecodeKey(cur.GetProfilePublicKey())
 		_, err = con.Write(publicKey)
 		ErrHandler(err)
 		cur.Connections.Store(user.ID, con)
 		go cur.handleRequest(user, con)
-		log.Println("connected to target", user.Username)
+		fmt.Println("connected to target", user.Username)
 	} else {
 		return
 	}
@@ -102,11 +102,14 @@ func (cur *Profile) RunServer(address string) {
 }
 
 func (cur *Profile) BuildDataMessage(data []byte, userId uint) (output []byte) {
-	log.Println("Building data request, data:", data, "user id:", userId)
+	fmt.Println("Building data request, data:", data, "user id:", userId)
 	dataMessage := DataMessage{string(data)}
 	var dataMessageBuffer bytes.Buffer
 	dataMessageEncoder := gob.NewEncoder(&dataMessageBuffer)
-	dataMessageEncoder.Encode(&dataMessage)
+	err := dataMessageEncoder.Encode(&dataMessage)
+	if ErrHandler(err) {
+		return
+	}
 	friendPos, _ := cur.FriendsIDXs.Load(userId)
 	output = cur.encryptAES(cur.Friends[friendPos.(int)].PublicKey, dataMessageBuffer.Bytes())
 	return
@@ -121,18 +124,21 @@ func (cur *Profile) WriteRequest(user User, request Request) {
 	value, _ := cur.Connections.Load(user.ID)
 	con = value.(net.Conn)
 	runtime.KeepAlive(cur.DataStrInput)
-	log.Println("writing to:", con.RemoteAddr())
+	fmt.Println("writing to:", con.RemoteAddr())
 
 	var requestBuffer bytes.Buffer
 	requestEncoder := gob.NewEncoder(&requestBuffer)
-	requestEncoder.Encode(&request)
+	err := requestEncoder.Encode(&request)
+	if ErrHandler(err) {
+		return
+	}
 
 	switch err {
 	case nil:
 		if _, err = con.Write(requestBuffer.Bytes()); err != nil {
 			log.Printf("failed to send the client request: %v\n", err)
 		}
-		log.Println("request sent")
+		fmt.Println("request sent")
 	case io.EOF:
 		log.Println("client closed the connection")
 		return
@@ -144,12 +150,11 @@ func (cur *Profile) WriteRequest(user User, request Request) {
 
 //Symmetrical connection for TCP between f2f
 func (cur *Profile) handleRequest(user User, con net.Conn) {
-	log.Println("handling")
+	fmt.Println("Handling")
 	defer func(con net.Conn) {
 		err := con.Close()
 		ErrHandler(err)
 	}(con)
-	//clientReader := bufio.NewReader(con)
 	for {
 		requestDecoder := gob.NewDecoder(con)
 		var request Request
@@ -182,7 +187,7 @@ func (cur *Profile) handleRequest(user User, con net.Conn) {
 }
 
 func (cur *Profile) dataHandler(user User, data []byte) {
-	log.Println("handling data request")
+	fmt.Println("Handling data request")
 	if user.ID == 0 {
 		return
 	}
@@ -191,11 +196,14 @@ func (cur *Profile) dataHandler(user User, data []byte) {
 
 	var dataMessage DataMessage
 	dataMessageDecoder := gob.NewDecoder(bytes.NewReader(decryptedData))
-	dataMessageDecoder.Decode(&dataMessage)
+	err := dataMessageDecoder.Decode(&dataMessage)
+	if ErrHandler(err) {
+		return
+	}
 	cur.DataStrOutput = []byte(dataMessage.Text)
 	cur.DataStrOutput = append([]byte{utils.RequestData}, cur.DataStrOutput...)
 
-	log.Println("updating callback")
+	fmt.Println("Updating callback")
 	UpdateUI(len(dataMessage.Text), int(user.ID))
 }
 
@@ -206,12 +214,15 @@ func (cur *Profile) verificationHandler(user User, data []byte) {
 
 	var dataPing DataPing
 	dataPingDecoder := gob.NewDecoder(bytes.NewReader(data))
-	dataPingDecoder.Decode(&dataPing)
+	err := dataPingDecoder.Decode(&dataPing)
+	if ErrHandler(err) {
+		return
+	}
 	cur.Friends[cur.getFriendNumber(int(user.ID))].Ping = dataPing.Ping
 }
 
 func (cur *Profile) networkHandler(data []byte) {
-	log.Println("handling network request")
+	fmt.Println("Handling network request")
 	var friend User
 
 	var request FriendRequest
