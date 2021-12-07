@@ -85,7 +85,7 @@ func (cur *Profile) addFriendRequest(userID uint, direction int) {
 	var request UserRequest
 	db.Where(&UserRequest{ProfileID: cur.ID, UserID: userID, Direction: direction}).Find(&request)
 	if request.ID == 0 {
-		db.Create(&UserRequest{ProfileID: cur.ID, UserID: userID, Direction: direction, Status: 0})
+		db.Create(&UserRequest{ProfileID: cur.ID, UserID: userID, Direction: direction, Status: 1})
 	} else {
 		log.Println("Request already exists")
 	}
@@ -96,7 +96,7 @@ func (cur *Profile) AcceptFriendRequest(request *UserRequest) {
 	user := cur.GetUser(request.UserID)
 	user.IsFriend = true
 	db.Save(&user)
-	request.Status = 1
+	request.Status = 2
 	db.Save(&request)
 }
 
@@ -105,7 +105,7 @@ func (cur *Profile) RejectFriendRequest(request *UserRequest) {
 	user := cur.GetUser(request.UserID)
 	user.IsFriend = false
 	db.Save(&user)
-	request.Status = 1
+	request.Status = 2
 	db.Save(&request)
 }
 
@@ -116,13 +116,13 @@ func (cur *Profile) DeleteFriendRequest(request *UserRequest) {
 
 func (cur *Profile) getFriendRequestsIn() (requests []UserRequest) {
 	fmt.Println("Loading friend incoming requests")
-	db.Where(&UserRequest{ProfileID: cur.ID, Direction: 0, Status: 0}).Find(&requests)
+	db.Where(&UserRequest{ProfileID: cur.ID, Direction: 0, Status: 1}).Find(&requests)
 	return requests
 }
 
 func (cur *Profile) getFriendRequestsOut() (requests []UserRequest) {
 	fmt.Println("Loading friend outgoing requests")
-	db.Where(&UserRequest{ProfileID: cur.ID, Direction: 1, Status: 0}).Find(&requests)
+	db.Where(&UserRequest{ProfileID: cur.ID, Direction: 1, Status: 1}).Find(&requests)
 	return requests
 }
 
