@@ -237,7 +237,7 @@ func (cur *Profile) verificationHandler(user User, data []byte) {
 	if ErrHandler(err) {
 		return
 	}
-	cur.Friends[cur.getFriendNumber(int(user.ID))].Ping = dataPing.Ping
+	cur.Friends[cur.getFriendNumber(user.ID)].Ping = dataPing.Ping
 }
 
 func (cur *Profile) networkHandler(user User, data []byte, answer bool) {
