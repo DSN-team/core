@@ -192,7 +192,7 @@ func (cur *Profile) ConnectToFriends() {
 }
 
 func (cur *Profile) ConnectToFriend(pos int) {
-	go cur.connect(cur.Friends[cur.getFriendNumber(pos)])
+	go cur.connect(cur.Friends[pos])
 }
 
 func (cur *Profile) LoadFriendsRequestsIn() int {
