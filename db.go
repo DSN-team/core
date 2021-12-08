@@ -80,15 +80,22 @@ func (cur *Profile) getUserByPublicKey(publicKeyString string) (user User) {
 	return
 }
 
-func (cur *Profile) addFriendRequest(userID uint, direction int) {
+func (cur *Profile) getUserByRequest(request UserRequest) (user User) {
+	db.Where(&User{ProfileID: cur.ID}).First(&user, request.UserID)
+	publicKey := UnmarshalPublicKey(DecodeKey(user.PublicKeyString))
+	user.PublicKey = &publicKey
+	return
+}
+
+func (cur *Profile) addFriendRequest(userID uint, direction int) (request UserRequest) {
 	fmt.Println("Adding friend request: friend userID =", userID)
-	var request UserRequest
 	db.Where(&UserRequest{ProfileID: cur.ID, UserID: userID, Direction: direction}).Find(&request)
 	if request.ID == 0 {
 		db.Create(&UserRequest{ProfileID: cur.ID, UserID: userID, Direction: direction, Status: 1})
 	} else {
 		log.Println("Request already exists")
 	}
+	return
 }
 
 func (cur *Profile) AcceptFriendRequest(request *UserRequest) {

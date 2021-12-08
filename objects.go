@@ -50,4 +50,5 @@ type UserRequest struct {
 	UserID    uint
 	Direction int
 	Status    int
+	BackTrace []byte `gorm:"-"`
 }

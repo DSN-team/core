@@ -252,7 +252,8 @@ func (cur *Profile) networkHandler(user User, data []byte, answer bool) {
 		friend = User{Username: requestEncryptMeta.FromUsername, PublicKey: &publicKey, IsFriend: false, PublicKeyString: publicKeyString}
 		cur.addUser(&friend)
 		if !answer {
-			cur.addFriendRequest(friend.ID, 1)
+			friendRequest := cur.addFriendRequest(friend.ID, 1)
+			friendRequest.BackTrace = request.BackTrace
 		}
 		fmt.Println("Friend request done, request from:", requestEncryptMeta.FromUsername)
 		cur.DataStrOutput = append([]byte{utils.RequestNetwork}, requestEncryptMeta.FromUsername...)

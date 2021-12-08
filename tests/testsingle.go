@@ -25,6 +25,8 @@ func main() {
 	profile1.LoadFriendsRequestsIn()
 	for i := 0; i < len(profile0.FriendRequestsIn); i++ {
 		profile0.AcceptFriendRequest(&profile0.FriendRequestsIn[i])
+		profile0.LoadFriends()
+		profile0.AnswerFindFriendRequest(profile0.FriendRequestsIn[i])
 	}
 
 	if len(profile0.Friends) > 0 {

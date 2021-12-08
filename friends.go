@@ -94,6 +94,33 @@ func (cur *Profile) writeFindFriendRequestDirect(friendRequest FriendRequest, se
 	request := Request{RequestType: utils.RequestNetwork, PublicKey: MarshalPublicKey(&cur.PrivateKey.PublicKey), Data: friendRequestBuffer.Bytes()}
 	cur.WriteRequest(sendTo, request)
 }
+
+func (cur *Profile) AnswerFindFriendRequest(request UserRequest) {
+	var friendRequest FriendRequest
+	friendRequest.BackTrace = request.BackTrace
+	friendRequest.FromPublicKey = MarshalPublicKey(&cur.PrivateKey.PublicKey)
+
+	var requestMeta FriendRequestMeta
+	var requestBuffer bytes.Buffer
+
+	user := cur.getUserByRequest(request)
+
+	requestEncoder := gob.NewEncoder(&requestBuffer)
+	//build request meta
+	requestMeta.ToUsername = user.Username
+	requestMeta.FromUsername = cur.Username
+	//encode request meta
+	err = requestEncoder.Encode(requestMeta)
+	ErrHandler(err)
+
+	//encrypt meta
+	encryptedMetaData := cur.encryptAES(user.PublicKey, requestBuffer.Bytes())
+
+	friendRequest.MetaDataEncrypted = encryptedMetaData
+
+	cur.answerFindFriendRequestDirect(friendRequest, user)
+}
+
 func (cur *Profile) answerFindFriendRequestDirect(friendRequest FriendRequest, sendTo User) {
 	fmt.Print("Write find friend friendRequest direct, depth:", friendRequest.Depth, "degree:", friendRequest.Degree)
 	newTrace := make([]byte, 0)
