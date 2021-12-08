@@ -27,7 +27,7 @@ func (cur *Profile) sortFriends() {
 	})
 }
 
-func (cur *Profile) getFriendNumber(id int) int {
+func (cur *Profile) getFriendNumber(id uint) int {
 	fmt.Println("Getting friend number")
 	output, _ := cur.FriendsIDXs.Load(id)
 	return output.(int)
@@ -192,7 +192,7 @@ func (cur *Profile) ConnectToFriends() {
 }
 
 func (cur *Profile) ConnectToFriend(pos int) {
-	go cur.connect(cur.Friends[cur.getFriendNumber(pos)])
+	go cur.connect(cur.Friends[cur.getFriendNumber(uint(pos))])
 }
 
 func (cur *Profile) LoadFriendsRequestsIn() int {
