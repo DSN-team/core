@@ -12,7 +12,7 @@ func connectNodes(profiles []*core.Profile, i, j int) {
 	utils.CreateNetwork(profiles[j], profiles[i])
 }
 func main() {
-	utils.InitTest()
+	utils.InitTest(true)
 	profiles := make([]*core.Profile, 8)
 	for i := 0; i < len(profiles); i++ {
 		profiles[i] = utils.RunProfile(strconv.FormatInt(int64(i), 10))

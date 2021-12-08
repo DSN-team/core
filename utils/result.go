@@ -11,6 +11,7 @@ const (
 	RequestDataVerification = byte(2)
 	RequestNetwork          = byte(3)
 	RequestAnswer           = byte(4)
+	RequestHello            = byte(5)
 	RequestError            = byte(0xFF)
 )
 

@@ -42,13 +42,15 @@ func getProfileByID(id uint) (profile *Profile) {
 func (cur *Profile) addUser(user *User) {
 	fmt.Println("Adding User:", user.Username)
 	var search User
-	db.Where(user).First(&search)
+	db.Where(&User{PublicKeyString: user.PublicKeyString}).First(&search)
 	if search.ID == 0 {
 		db.Create(&user)
-		db.Last(&user)
 	} else {
 		log.Println("User already exists", user.ID)
 		user.ID = search.ID
+		if user.Address != "" {
+			db.Save(user)
+		}
 	}
 	return
 }
@@ -74,7 +76,7 @@ func (cur *Profile) getUserByUsername(username string) (user User) {
 
 func (cur *Profile) getUserByPublicKey(publicKeyString string) (user User) {
 	fmt.Println("Getting user by public key")
-	db.Where(User{PublicKeyString: publicKeyString}).First(&user)
+	db.Where(&User{ProfileID: cur.ID, PublicKeyString: publicKeyString}).First(&user)
 	publicKey := UnmarshalPublicKey(DecodeKey(user.PublicKeyString))
 	user.PublicKey = &publicKey
 	return
@@ -136,7 +138,7 @@ func (cur *Profile) getFriendRequestsOut() (requests []UserRequest) {
 func (cur *Profile) searchFriendRequest(id uint) bool {
 	fmt.Println("Searching friend request:", id)
 	var request UserRequest
-	db.Where(UserRequest{ProfileID: cur.ID, UserID: id}, "friendRequests").Find(&request)
+	db.Where(UserRequest{ProfileID: cur.ID, UserID: id}).First(&request)
 	if request.ID == 0 {
 		return false
 	} else {

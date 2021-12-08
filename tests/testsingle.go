@@ -9,8 +9,7 @@ import (
 )
 
 func main() {
-
-	utils.InitTest()
+	utils.InitTest(true)
 	profile0 := utils.RunProfile("0")
 	profile1 := utils.RunProfile("1")
 	utils.CreateNetwork(profile0, profile1)
@@ -20,7 +19,7 @@ func main() {
 	//fmt.Println("requests:", profile0.getFriendRequestsIn())
 	go utils.StartConnection(profile0)
 	go utils.StartConnection(profile1)
-	time.Sleep(1000 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 	profile0.LoadFriendsRequestsIn()
 	profile1.LoadFriendsRequestsIn()
 	for i := 0; i < len(profile0.FriendRequestsIn); i++ {
@@ -32,6 +31,7 @@ func main() {
 	if len(profile0.Friends) > 0 {
 		delayedCall(profile0, profile1, "test")
 	}
+	time.Sleep(200 * time.Millisecond)
 	if len(profile1.Friends) > 0 {
 		delayedCall(profile1, profile0, "test")
 	}
@@ -43,7 +43,7 @@ func main() {
 }
 
 func delayedCall(from, to *core.Profile, msg string) {
-
+	time.Sleep(200 * time.Millisecond)
 	core.UpdateUI = func(i int, client int) {
 		fmt.Print("client:", client, "\n")
 		fmt.Print("got it:", to.DataStrOutput)

@@ -1,7 +1,6 @@
 package core
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/gob"
 	"fmt"
@@ -47,35 +46,32 @@ func (cur *Profile) server(address string) {
 
 		profilePublicKey := DecodeKey(cur.GetProfilePublicKey())
 
-		clientReader := bufio.NewReader(con)
-		publicKeyLen := len(profilePublicKey)
+		var request Request
 
-		var clientKey []byte
-		clientKey, err = clientReader.Peek(publicKeyLen)
-		ErrHandler(err)
-		_, err = clientReader.Discard(publicKeyLen)
+		requestDecoder := gob.NewDecoder(con)
+		err = requestDecoder.Decode(&request)
 		ErrHandler(err)
 
-		log.Println("reader size:", clientReader.Size())
-
-		clientPublicKeyString := EncodeKey(clientKey)
+		clientPublicKeyString := EncodeKey(request.PublicKey)
 		profilePublicKeyString := EncodeKey(profilePublicKey)
 
 		user := cur.getUserByPublicKey(clientPublicKeyString)
+		if user.ID == 0 {
+			user.PublicKeyString = clientPublicKeyString
+		}
 
-		if profilePublicKeyString == clientPublicKeyString {
+		if profilePublicKeyString == user.PublicKeyString {
 			return
 		}
 
-		fmt.Println("connected:", user.ID, clientPublicKeyString)
-		if user.ID != 0 {
-			if _, ok := cur.Connections.Load(user.ID); !ok {
-				fmt.Println("connection not found adding...")
-				cur.Connections.Store(user.ID, con)
-			} else {
-				fmt.Println("connection already connected")
-				return
-			}
+		fmt.Println("connected:", user.ID, user.PublicKeyString)
+
+		if _, ok := cur.Connections.Load(user.PublicKeyString); !ok {
+			fmt.Println("connection not found adding...")
+			cur.Connections.Store(user.PublicKeyString, con)
+		} else {
+			fmt.Println("connection already connected")
+			return
 		}
 
 		go cur.handleRequest(user, con)
@@ -83,13 +79,26 @@ func (cur *Profile) server(address string) {
 }
 
 func (cur *Profile) connect(user User) {
-	if _, ok := cur.Connections.Load(user.ID); !ok {
+	fmt.Println("Connecting to:", user)
+	if _, ok := cur.Connections.Load(user.PublicKeyString); !ok {
 		fmt.Println("Connection not found adding...")
 		con, err := net.Dial("tcp", user.Address)
+		if ErrHandler(err) {
+			fmt.Println("Exiting at error")
+			return
+		}
+		var requestBuffer bytes.Buffer
 		publicKey := DecodeKey(cur.GetProfilePublicKey())
-		_, err = con.Write(publicKey)
+		request := Request{RequestType: utils.RequestHello, PublicKey: publicKey}
+
+		requestEncoder := gob.NewEncoder(&requestBuffer)
+		err = requestEncoder.Encode(&request)
 		ErrHandler(err)
-		cur.Connections.Store(user.ID, con)
+
+		_, err = con.Write(requestBuffer.Bytes())
+
+		ErrHandler(err)
+		cur.Connections.Store(user.PublicKeyString, con)
 		go cur.handleRequest(user, con)
 		fmt.Println("connected to target", user.Username)
 	} else {
@@ -117,11 +126,15 @@ func (cur *Profile) BuildDataMessage(data []byte, userId uint) (output []byte) {
 
 func (cur *Profile) WriteRequest(user User, request Request) {
 	var con net.Conn
-	if _, ok := cur.Connections.Load(user.ID); !ok {
+	if _, ok := cur.Connections.Load(user.PublicKeyString); !ok {
 		log.Println("Not connected to:", user.Username)
 		cur.connect(user)
 	}
-	value, _ := cur.Connections.Load(user.ID)
+
+	value, _ := cur.Connections.Load(user.PublicKeyString)
+	if value == nil {
+		return
+	}
 	con = value.(net.Conn)
 	runtime.KeepAlive(cur.DataStrInput)
 	fmt.Println("writing to:", con.RemoteAddr())
@@ -249,19 +262,35 @@ func (cur *Profile) networkHandler(user User, data []byte, answer bool) {
 
 	if cur.Username == requestEncryptMeta.ToUsername {
 		publicKeyString := EncodeKey(request.FromPublicKey)
-		friend = User{Username: requestEncryptMeta.FromUsername, PublicKey: &publicKey, IsFriend: false, PublicKeyString: publicKeyString}
+		friend = User{ProfileID: cur.ID, Username: requestEncryptMeta.FromUsername, Address: requestEncryptMeta.FromAddress,
+			PublicKey:       &publicKey,
+			IsFriend:        false,
+			PublicKeyString: publicKeyString}
 		cur.addUser(&friend)
 		if !answer {
 			friendRequest := cur.addFriendRequest(friend.ID, 1)
 			friendRequest.BackTrace = request.BackTrace
-		}
-		fmt.Println("Friend request done, request from:", requestEncryptMeta.FromUsername)
-		cur.DataStrOutput = append([]byte{utils.RequestNetwork}, requestEncryptMeta.FromUsername...)
-		cur.DataStrOutput = append(cur.DataStrOutput, request.FromPublicKey...)
-		cur.DataStrOutput = append(cur.DataStrOutput, request.BackTrace...)
+			fmt.Println("Friend request done, request from:", requestEncryptMeta.FromUsername)
+			cur.DataStrOutput = append([]byte{utils.RequestNetwork}, requestEncryptMeta.FromUsername...)
+			cur.DataStrOutput = append(cur.DataStrOutput, request.FromPublicKey...)
+			cur.DataStrOutput = append(cur.DataStrOutput, request.BackTrace...)
 
-		UpdateUI(len(requestEncryptMeta.ToUsername), int(friend.ID))
-		return
+			UpdateUI(len(requestEncryptMeta.ToUsername), int(friend.ID))
+			return
+		} else {
+			if cur.searchFriendRequest(friend.ID) {
+				fmt.Println("SAVING FRIEND FROM answer")
+				friend.IsFriend = true
+				db.Save(friend)
+
+				cur.DataStrOutput = append([]byte{utils.RequestAnswer}, requestEncryptMeta.FromUsername...)
+				cur.DataStrOutput = append(cur.DataStrOutput, request.FromPublicKey...)
+				cur.DataStrOutput = append(cur.DataStrOutput, request.BackTrace...)
+				cur.LoadFriends()
+				UpdateUI(len(requestEncryptMeta.ToUsername), int(friend.ID))
+			}
+		}
+
 	}
 
 	request.Depth--
@@ -271,9 +300,8 @@ func (cur *Profile) networkHandler(user User, data []byte, answer bool) {
 		cur.writeFindFriendRequestSecondary(request, int(friend.ID))
 	}
 
-	if answer {
+	if answer && len(request.BackTrace) > 0 {
 		last := request.BackTrace[len(request.BackTrace)-1]
-		request.BackTrace = request.BackTrace[0 : len(request.BackTrace)-1]
 		cur.answerFindFriendRequestDirect(request, cur.Friends[last])
 	}
 }

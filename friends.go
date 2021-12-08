@@ -17,7 +17,7 @@ type FriendRequest struct {
 }
 
 type FriendRequestMeta struct {
-	ToUsername, FromUsername string
+	ToUsername, FromUsername, Address, FromAddress string
 }
 
 func (cur *Profile) sortFriends() {
@@ -43,6 +43,9 @@ func (cur *Profile) WriteFindFriendRequest(user User) {
 	//build request meta
 	requestMeta.ToUsername = user.Username
 	requestMeta.FromUsername = cur.Username
+	requestMeta.Address = user.Address
+	requestMeta.FromAddress = cur.Address
+	fmt.Println("sendTo Address:", requestMeta.Address, " sendFrom Address:", requestMeta.FromAddress)
 	//encode request meta
 	err = requestEncoder.Encode(requestMeta)
 	ErrHandler(err)
@@ -105,10 +108,15 @@ func (cur *Profile) AnswerFindFriendRequest(request UserRequest) {
 
 	user := cur.getUserByRequest(request)
 
+	user.IsFriend = true
+	db.Save(user)
+
 	requestEncoder := gob.NewEncoder(&requestBuffer)
 	//build request meta
 	requestMeta.ToUsername = user.Username
 	requestMeta.FromUsername = cur.Username
+	requestMeta.Address = user.Address
+	requestMeta.FromAddress = cur.Address
 	//encode request meta
 	err = requestEncoder.Encode(requestMeta)
 	ErrHandler(err)
@@ -138,7 +146,7 @@ func (cur *Profile) answerFindFriendRequestDirect(friendRequest FriendRequest, s
 }
 
 func (cur *Profile) AddFriend(username, address, publicKey string) {
-	fmt.Println("Add friend, ToUsername:", username, "address:", address, "publicKey:", publicKey)
+	fmt.Println("Add friend, ToUsername:", username, "Address:", address, "publicKey:", publicKey)
 	user := cur.getUserByUsername(username)
 	if user.ID == 0 {
 		user = User{ProfileID: cur.ID, Username: username, Address: address, PublicKeyString: publicKey, IsFriend: false}
@@ -167,12 +175,16 @@ func (cur *Profile) ConnectToFriends() {
 	go func() {
 		for i := 0; i < len(cur.Friends); i++ {
 			fmt.Println("Connecting to friend:", cur.Friends[i].Username, "number:", i)
-			go cur.connect(cur.Friends[i])
+			go func(j int) {
+				cur.connect(cur.Friends[j])
+			}(i)
 		}
 		for {
 			time.Sleep(250 * time.Millisecond)
 			for i := 0; i < len(cur.Friends); i++ {
-				cur.connect(cur.Friends[i])
+				if _, ok := cur.Connections.Load(cur.Friends[i].PublicKeyString); !ok {
+					cur.connect(cur.Friends[i])
+				}
 			}
 		}
 	}()

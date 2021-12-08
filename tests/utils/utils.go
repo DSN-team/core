@@ -2,14 +2,21 @@ package utils
 
 import (
 	"github.com/DSN-team/core"
+	"os"
 	"strconv"
 	"time"
 )
 
 const baseAddress = "127.0.0.1:300"
 
-func InitTest() {
+func InitTest(clear bool) {
 	//Sleep between retrying
+	if clear {
+		path := "data.db"
+		if _, err := os.Stat(path); err == nil {
+			err = os.Remove(path)
+		}
+	}
 	time.Sleep(250 * time.Millisecond)
 	core.StartDB()
 	core.LoadProfiles()
