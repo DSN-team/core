@@ -83,7 +83,7 @@ func (cur *Profile) writeFindFriendRequestDirect(friendRequest FriendRequest, se
 	fmt.Print("Write find friend friendRequest direct, depth:", friendRequest.Depth, "degree:", friendRequest.Degree)
 	newTrace := make([]byte, 0)
 	utils.SetBytes(&newTrace, friendRequest.BackTrace)
-	utils.SetUint8(&newTrace, uint8(sendTo.ID))
+	//utils.SetUint8(&newTrace, uint8(sendTo.ID))
 	friendRequest.BackTrace = newTrace
 
 	var friendRequestBuffer bytes.Buffer
@@ -92,6 +92,21 @@ func (cur *Profile) writeFindFriendRequestDirect(friendRequest FriendRequest, se
 	ErrHandler(err)
 
 	request := Request{RequestType: utils.RequestNetwork, PublicKey: MarshalPublicKey(&cur.PrivateKey.PublicKey), Data: friendRequestBuffer.Bytes()}
+	cur.WriteRequest(sendTo, request)
+}
+func (cur *Profile) answerFindFriendRequestDirect(friendRequest FriendRequest, sendTo User) {
+	fmt.Print("Write find friend friendRequest direct, depth:", friendRequest.Depth, "degree:", friendRequest.Degree)
+	newTrace := make([]byte, 0)
+	utils.SetBytes(&newTrace, friendRequest.BackTrace)
+	//utils.SetUint8(&newTrace, uint8(sendTo.ID))
+	friendRequest.BackTrace = newTrace
+
+	var friendRequestBuffer bytes.Buffer
+	friendRequestEncoder := gob.NewEncoder(&friendRequestBuffer)
+	err = friendRequestEncoder.Encode(friendRequest)
+	ErrHandler(err)
+
+	request := Request{RequestType: utils.RequestAnswer, PublicKey: MarshalPublicKey(&cur.PrivateKey.PublicKey), Data: friendRequestBuffer.Bytes()}
 	cur.WriteRequest(sendTo, request)
 }
 

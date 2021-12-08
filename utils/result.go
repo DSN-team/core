@@ -10,6 +10,7 @@ const (
 	RequestData             = byte(1)
 	RequestDataVerification = byte(2)
 	RequestNetwork          = byte(3)
+	RequestAnswer           = byte(4)
 	RequestError            = byte(0xFF)
 )
 

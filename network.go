@@ -169,7 +169,7 @@ func (cur *Profile) handleRequest(user User, con net.Conn) {
 			}
 		case utils.RequestNetwork:
 			{
-				cur.networkHandler(request.Data)
+				cur.networkHandler(user, request.Data, false)
 				break
 			}
 		case utils.RequestDataVerification:
@@ -177,11 +177,17 @@ func (cur *Profile) handleRequest(user User, con net.Conn) {
 				cur.verificationHandler(user, request.Data)
 				break
 			}
+		case utils.RequestAnswer:
+			{
+				cur.networkHandler(user, request.Data, true)
+				break
+			}
 		case utils.RequestError:
 			{
 				fmt.Println("Request error")
 				os.Exit(-1)
 			}
+
 		}
 	}
 }
@@ -221,7 +227,7 @@ func (cur *Profile) verificationHandler(user User, data []byte) {
 	cur.Friends[cur.getFriendNumber(int(user.ID))].Ping = dataPing.Ping
 }
 
-func (cur *Profile) networkHandler(data []byte) {
+func (cur *Profile) networkHandler(user User, data []byte, answer bool) {
 	fmt.Println("Handling network request")
 	var friend User
 
@@ -245,8 +251,9 @@ func (cur *Profile) networkHandler(data []byte) {
 		publicKeyString := EncodeKey(request.FromPublicKey)
 		friend = User{Username: requestEncryptMeta.FromUsername, PublicKey: &publicKey, IsFriend: false, PublicKeyString: publicKeyString}
 		cur.addUser(&friend)
-		cur.addFriendRequest(friend.ID, 1)
-
+		if !answer {
+			cur.addFriendRequest(friend.ID, 1)
+		}
 		fmt.Println("Friend request done, request from:", requestEncryptMeta.FromUsername)
 		cur.DataStrOutput = append([]byte{utils.RequestNetwork}, requestEncryptMeta.FromUsername...)
 		cur.DataStrOutput = append(cur.DataStrOutput, request.FromPublicKey...)
@@ -259,6 +266,13 @@ func (cur *Profile) networkHandler(data []byte) {
 	request.Depth--
 	//Required: Friends.ping && Friends.is_online
 	if request.Depth > 0 {
+		request.BackTrace = append(request.BackTrace, byte(user.ID))
 		cur.writeFindFriendRequestSecondary(request, int(friend.ID))
+	}
+
+	if answer {
+		last := request.BackTrace[len(request.BackTrace)-1]
+		request.BackTrace = request.BackTrace[0 : len(request.BackTrace)-1]
+		cur.answerFindFriendRequestDirect(request, cur.Friends[last])
 	}
 }
